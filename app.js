@@ -374,6 +374,7 @@
     const img = new Image();
     img.onload = () => {
       bgImage = img;
+      showBack = true;
       if ($("bgMode").value === "none") {
         $("bgMode").value = "simple";
         saveForm();
@@ -586,6 +587,7 @@
   let current = null;   // { doc, url, name }
   let buildId = 0;
   let pending = null;   // Promise of the in-flight build
+  let showBack = false; // open the next preview at the first card back
 
   function fileName(s) {
     const base = (s.title || "bingo").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase();
@@ -618,10 +620,13 @@
       if (current) URL.revokeObjectURL(current.url);
       const url = URL.createObjectURL(doc.output("blob"));
       current = { doc, url, name: fileName(s) };
-      $("pdfFrame").src = url + "#view=FitH";
+      const hasBack = s.bgMode !== "none" && bgImage;
+      $("pdfFrame").src = url + (hasBack && showBack ? "#page=2&view=FitH" : "#view=FitH");
+      showBack = false;
       showEmpty(false);
       const pages = doc.getNumberOfPages();
-      $("status").textContent = `${s.count} card${s.count === 1 ? "" : "s"} · ${pages} page${pages === 1 ? "" : "s"}`;
+      $("status").textContent = `${s.count} card${s.count === 1 ? "" : "s"} · ${pages} page${pages === 1 ? "" : "s"}` +
+        (hasBack ? " · card backs are on the even pages" : "");
     }).catch((ex) => {
       if (id !== buildId) return;
       console.error(ex);
@@ -666,6 +671,9 @@
   $("bgFile").addEventListener("change", (e) => loadImage(e.target.files[0]));
   $("count").addEventListener("input", () => { updateArrangeOptions(); updateBackground(); });
   $("form").addEventListener("change", updateBackground);
+  for (const id of ["bgMode", "arrange", "flip"]) {
+    $(id).addEventListener("change", () => { showBack = true; });
+  }
   window.addEventListener("resize", updateBackground);
 
   $("form").addEventListener("submit", download);
@@ -674,7 +682,8 @@
     timer = null;
     regenerate();
   });
-  $("form").addEventListener("input", () => {
+  $("form").addEventListener("input", (e) => {
+    if (e.target.id === "bgFile") return; // loadImage rebuilds once the image is ready
     saveForm();
     updateCount();
     updateFontSamples();
