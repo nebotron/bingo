@@ -94,3 +94,14 @@ button:disabled { opacity: 0.6; cursor: default; }
   .grid2 { grid-template-columns: 1fr; }
   #preview .pgrid > div { font-size: 0.55rem; padding: 2px; }
 }
+
+[hidden] { display: none !important; }
+.spaced { margin-top: 14px; }
+input[type="file"] { font: inherit; max-width: 100%; }
+#bgPreview {
+  display: block;
+  margin-top: 12px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
