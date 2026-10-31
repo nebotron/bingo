@@ -291,6 +291,10 @@
     const img = new Image();
     img.onload = () => {
       bgImage = img;
+      if ($("bgMode").value === "none") {
+        $("bgMode").value = "simple";
+        saveForm();
+      }
       $("error").textContent = "";
       updateBackground();
     };

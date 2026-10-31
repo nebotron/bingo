@@ -61,15 +61,15 @@
       </section>
 
       <section class="panel">
-        <label for="bgMode">Card back image</label>
+        <label for="bgFile">Card back image <span class="hint">(optional)</span></label>
+        <input id="bgFile" type="file" accept="image/*">
+        <label for="bgMode">How to use the image</label>
         <select id="bgMode">
-          <option value="none" selected>None</option>
+          <option value="none" selected>None: no image on the backs</option>
           <option value="simple">Simple: the same image on the back of every card</option>
           <option value="composite">Composite: the card backs combine into one large picture</option>
         </select>
         <div id="bgOptions" hidden>
-          <label for="bgFile">Image</label>
-          <input id="bgFile" type="file" accept="image/*">
           <div class="grid2 spaced">
             <div id="arrangeWrap">
               <label for="arrange">Arrangement</label>
