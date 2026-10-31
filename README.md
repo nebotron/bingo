@@ -7,7 +7,9 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 3. Choose the grid size, number of cards, cards per page and paper size.
 4. Click **Download PDF**.
 
-### Card back images
+Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares.
+
+## Card back images
 
 Optionally, pick an image to print on the back of the cards:
 
@@ -15,8 +17,6 @@ Optionally, pick an image to print on the back of the cards:
 - **Composite**: the image is sliced so that the card backs, laid side by side, form one large picture. Choose how many cards across and down, or let the app pick the grid that best fits the image. Each card's front shows its number, its row and column, and a small map of where it goes.
 
 With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The back images extend 1/8" past the cut lines so small printer misalignments don't leave white edges. For a composite, lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
-
-Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares.
 
 ## Hosting
 
