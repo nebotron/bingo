@@ -16,15 +16,28 @@
     <form id="form" autocomplete="off">
       <section class="panel">
         <label for="title">Card title</label>
-        <input id="title" type="text" value="BINGO" maxlength="80">
+        <input id="title" type="text" value="Wedding Bingo" maxlength="80">
 
         <label for="clues">Clues <span class="hint">(one per line)</span></label>
-        <textarea id="clues" rows="14" placeholder="Someone says &quot;you're on mute&quot;&#10;Dog barks in the background&#10;..."></textarea>
+        <textarea id="clues" rows="14" placeholder="Someone cries during the vows&#10;The DJ plays the Macarena&#10;..."></textarea>
         <p id="clueCount" class="hint"></p>
 
         <label for="free">Free space text</label>
         <input id="free" type="text" value="FREE" maxlength="120">
         <label class="check"><input id="useFree" type="checkbox" checked> Include a free space in the center</label>
+      </section>
+
+      <section class="panel grid2">
+        <div>
+          <label for="titleFont">Title &amp; free space font</label>
+          <select id="titleFont" class="font-select"></select>
+          <p class="font-sample" data-for="titleFont">Wedding Bingo</p>
+        </div>
+        <div>
+          <label for="clueFont">Clue font</label>
+          <select id="clueFont" class="font-select"></select>
+          <p class="font-sample" data-for="clueFont">The first dance</p>
+        </div>
       </section>
 
       <section class="panel grid2">
@@ -63,14 +76,15 @@
       <p id="error" class="error" role="alert"></p>
 
       <div class="actions">
-        <button type="button" id="previewBtn" class="secondary">Shuffle preview</button>
-        <button type="submit" id="generateBtn">Download PDF</button>
+        <button type="button" id="shuffleBtn" class="secondary">Reshuffle cards</button>
+        <button type="submit" id="downloadBtn">Download PDF</button>
       </div>
     </form>
 
     <section class="panel">
-      <h2>Preview</h2>
-      <div id="preview"></div>
+      <h2>PDF preview <span id="status" class="hint"></span></h2>
+      <iframe id="pdfFrame" title="Generated bingo cards PDF"></iframe>
+      <p id="pdfEmpty" class="empty">Add enough clues to generate cards.</p>
     </section>
   </main>
 

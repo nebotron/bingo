@@ -1,3 +1,19 @@
+@font-face { font-family: "Great Vibes"; src: url("fonts/GreatVibes-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Pinyon Script"; src: url("fonts/PinyonScript-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Parisienne"; src: url("fonts/Parisienne-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Allura"; src: url("fonts/Allura-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Alex Brush"; src: url("fonts/AlexBrush-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Dancing Script"; src: url("fonts/DancingScript-Medium.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Dancing Script"; src: url("fonts/DancingScript-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Cormorant Garamond"; src: url("fonts/CormorantGaramond-Medium.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Cormorant Garamond"; src: url("fonts/CormorantGaramond-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "EB Garamond"; src: url("fonts/EBGaramond-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "EB Garamond"; src: url("fonts/EBGaramond-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Playfair Display"; src: url("fonts/PlayfairDisplay-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Playfair Display"; src: url("fonts/PlayfairDisplay-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Lora"; src: url("fonts/Lora-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Lora"; src: url("fonts/Lora-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+
 :root {
   --bg: #f6f5f2;
   --panel: #ffffff;
@@ -71,26 +87,33 @@ button.secondary { background: transparent; color: var(--accent); }
 button:disabled { opacity: 0.6; cursor: default; }
 .error { color: var(--error); min-height: 1.2em; margin: 0 0 8px; }
 
-#preview .ptitle { text-align: center; font-weight: 700; font-size: 1.3rem; margin-bottom: 8px; overflow-wrap: anywhere; }
-#preview .pgrid { display: grid; border: 2px solid var(--text); }
-#preview .pgrid > div {
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--text);
-  padding: 4px;
+.font-sample {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  min-height: 2.6em;
+  font-size: 1.6rem;
+  line-height: 1.3;
   text-align: center;
-  font-size: 0.75rem;
-  line-height: 1.2;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  hyphens: auto;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-#preview .pgrid > div.free { background: var(--free); font-weight: 700; }
-#preview .empty { color: var(--muted); }
+h2 .hint { font-size: 0.85rem; margin-left: 6px; }
+#pdfFrame {
+  display: block;
+  width: 100%;
+  height: 80vh;
+  min-height: 420px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+}
+.empty { color: var(--muted); margin: 0; }
+[hidden] { display: none !important; }
 
 @media (max-width: 520px) {
   .grid2 { grid-template-columns: 1fr; }
-  #preview .pgrid > div { font-size: 0.55rem; padding: 2px; }
+  #pdfFrame { height: 70vh; }
 }

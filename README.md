@@ -4,10 +4,11 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line.
 2. Set the free-space text, or turn the free space off.
-3. Choose the grid size, number of cards, cards per page and paper size.
-4. Click **Download PDF**.
+3. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title and free space share one font; the clues use another.
+4. Choose the grid size, number of cards, cards per page and paper size.
+5. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
 
-Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares.
+Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares. Lines only break between words, never inside one.
 
 ## Hosting
 
@@ -19,4 +20,4 @@ To run it locally:
 python3 -m http.server
 ```
 
-PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`.
+PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
