@@ -117,3 +117,14 @@ h2 .hint { font-size: 0.85rem; margin-left: 6px; }
   .grid2 { grid-template-columns: 1fr; }
   #pdfFrame { height: 70vh; }
 }
+
+[hidden] { display: none !important; }
+.spaced { margin-top: 14px; }
+input[type="file"] { font: inherit; max-width: 100%; }
+#bgPreview {
+  display: block;
+  margin-top: 12px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}

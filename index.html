@@ -73,6 +73,34 @@
         <label class="check full"><input id="numbered" type="checkbox" checked> Print card numbers</label>
       </section>
 
+      <section class="panel">
+        <label for="bgFile">Card back image <span class="hint">(optional)</span></label>
+        <input id="bgFile" type="file" accept="image/*">
+        <label for="bgMode">How to use the image</label>
+        <select id="bgMode">
+          <option value="none" selected>None: no image on the backs</option>
+          <option value="simple">Simple: the same image on the back of every card</option>
+          <option value="composite">Composite: the card backs combine into one large picture</option>
+        </select>
+        <div id="bgOptions" hidden>
+          <div class="grid2 spaced">
+            <div id="arrangeWrap">
+              <label for="arrange">Arrangement</label>
+              <select id="arrange"><option value="auto">Auto (best fit)</option></select>
+            </div>
+            <div>
+              <label for="flip">Double-sided printing</label>
+              <select id="flip">
+                <option value="long" selected>Flip on long edge</option>
+                <option value="short">Flip on short edge</option>
+              </select>
+            </div>
+          </div>
+          <p id="bgHint" class="hint"></p>
+          <canvas id="bgPreview" hidden></canvas>
+        </div>
+      </section>
+
       <p id="error" class="error" role="alert"></p>
 
       <div class="actions">
