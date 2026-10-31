@@ -525,18 +525,27 @@
     }
   }
 
-  // Corner crop marks just outside the trim box, clear of neighbouring cards.
-  function drawCropMarks(doc, x, y, w, h) {
-    const off = 2, len = 8;
+  // Crop marks in the page margins, one in line with every cut. None go
+  // between cards, where marks from neighbouring cards would run together.
+  function drawCropMarks(doc, layout, slots) {
+    const { w, h } = layout;
+    const off = 4, len = 16;
+    const xs = [...new Set(slots.flatMap((p) => [p.x, p.x + w]))];
+    const ys = [...new Set(slots.flatMap((p) => [p.y, p.y + h]))];
+    const top = Math.min(...ys), bottom = Math.max(...ys);
+    const left = Math.min(...xs), right = Math.max(...xs);
     doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    for (const [cx, dx] of [[x, -1], [x + w, 1]]) {
-      for (const [cy, dy] of [[y, -1], [y + h, 1]]) {
-        doc.line(cx + dx * off, cy, cx + dx * (off + len), cy);
-        doc.line(cx, cy + dy * off, cx, cy + dy * (off + len));
-      }
+    doc.setLineWidth(0.4);
+    for (const x of xs) {
+      doc.line(x, top - off, x, top - off - len);
+      doc.line(x, bottom + off, x, bottom + off + len);
+    }
+    for (const y of ys) {
+      doc.line(left - off, y, left - off - len, y);
+      doc.line(right + off, y, right + off + len, y);
     }
   }
+
 
   async function buildPdf(s, cards) {
     const { jsPDF } = window.jspdf;
@@ -566,10 +575,10 @@
           place = { cols, rows, c: i % cols, r: Math.floor(i / cols) };
           label = `#${i + 1} · row ${place.r + 1}, col ${place.c + 1}`;
         }
-        if (hasBack) drawCropMarks(doc, slot.x, slot.y, w, h);
         drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset);
       });
       if (!hasBack) continue;
+      drawCropMarks(doc, layout, layout.slots.slice(0, batch.length));
       // The reverse page: each back mirrored to sit behind its front.
       doc.addPage();
       batch.forEach((card, k) => {
