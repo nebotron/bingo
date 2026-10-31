@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bingo Card Maker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Bingo Card Maker</h1>
+      <p class="sub">Paste your clues, pick a free space, and download randomized cards as a PDF.</p>
+    </header>
+
+    <form id="form" autocomplete="off">
+      <section class="panel">
+        <label for="title">Card title</label>
+        <input id="title" type="text" value="BINGO" maxlength="80">
+
+        <label for="clues">Clues <span class="hint">(one per line)</span></label>
+        <textarea id="clues" rows="14" placeholder="Someone says &quot;you're on mute&quot;&#10;Dog barks in the background&#10;..."></textarea>
+        <p id="clueCount" class="hint"></p>
+
+        <label for="free">Free space text</label>
+        <input id="free" type="text" value="FREE" maxlength="120">
+        <label class="check"><input id="useFree" type="checkbox" checked> Include a free space in the center</label>
+      </section>
+
+      <section class="panel grid2">
+        <div>
+          <label for="size">Grid size</label>
+          <select id="size">
+            <option value="3">3 × 3</option>
+            <option value="4">4 × 4</option>
+            <option value="5" selected>5 × 5</option>
+            <option value="6">6 × 6</option>
+            <option value="7">7 × 7</option>
+          </select>
+        </div>
+        <div>
+          <label for="count">Number of cards</label>
+          <input id="count" type="number" min="1" max="1000" value="20">
+        </div>
+        <div>
+          <label for="perPage">Cards per page</label>
+          <select id="perPage">
+            <option value="1" selected>1</option>
+            <option value="2">2</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div>
+          <label for="paper">Paper</label>
+          <select id="paper">
+            <option value="letter" selected>Letter</option>
+            <option value="a4">A4</option>
+          </select>
+        </div>
+        <label class="check full"><input id="numbered" type="checkbox" checked> Print card numbers</label>
+      </section>
+
+      <p id="error" class="error" role="alert"></p>
+
+      <div class="actions">
+        <button type="button" id="previewBtn" class="secondary">Shuffle preview</button>
+        <button type="submit" id="generateBtn">Download PDF</button>
+      </div>
+    </form>
+
+    <section class="panel">
+      <h2>Preview</h2>
+      <div id="preview"></div>
+    </section>
+  </main>
+
+  <script src="vendor/jspdf.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
