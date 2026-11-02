@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Half-Circle Text</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <nav class="tools"><a href="index.html">Bingo Card Maker</a><a href="semicircle.html" aria-current="page">Half-Circle Text</a></nav>
+    <header>
+      <h1>Half-Circle Text</h1>
+      <p class="sub">Wrap text inside a half-circle and download it as an SVG for Canva or any other design tool.</p>
+    </header>
+
+    <form id="form" autocomplete="off">
+      <section class="panel">
+        <label for="text">Text <span class="hint">(press Enter to force a line break)</span></label>
+        <textarea id="text" rows="6">Two hearts, one story. Join us as we celebrate the beginning of forever, surrounded by the people we love most.</textarea>
+      </section>
+
+      <section class="panel grid2">
+        <div>
+          <label for="font">Font</label>
+          <select id="font"></select>
+          <label class="check"><input id="bold" type="checkbox"> Bold</label>
+        </div>
+        <div>
+          <label for="color">Text color</label>
+          <input id="color" type="color" value="#1d1d1f">
+        </div>
+        <div>
+          <label for="fontSize">Font size <span class="hint">(px)</span></label>
+          <div class="inline">
+            <input id="fontSize" type="number" min="4" max="1000" step="0.5" value="28">
+            <button type="button" id="fitBtn" class="secondary small">Fit to frame</button>
+          </div>
+        </div>
+        <div>
+          <label for="radius">Radius <span class="hint">(px)</span></label>
+          <input id="radius" type="number" min="20" max="5000" step="1" value="300">
+        </div>
+        <div>
+          <label for="lineHeight">Line spacing</label>
+          <input id="lineHeight" type="number" min="0.6" max="4" step="0.05" value="1.2">
+        </div>
+        <div>
+          <label for="tracking">Letter spacing <span class="hint">(1/1000 em)</span></label>
+          <input id="tracking" type="number" min="-200" max="1000" step="10" value="0">
+        </div>
+        <div>
+          <label for="padding">Inner margin <span class="hint">(px)</span></label>
+          <input id="padding" type="number" min="0" max="1000" step="1" value="12">
+        </div>
+        <div>
+          <label for="hemisphere">Half</label>
+          <select id="hemisphere">
+            <option value="top" selected>Top: dome, flat side at the bottom</option>
+            <option value="bottom">Bottom: bowl, flat side at the top</option>
+            <option value="left">Left: flat side on the right</option>
+            <option value="right">Right: flat side on the left</option>
+          </select>
+        </div>
+      </section>
+
+      <section class="panel">
+        <span class="label">Spacing</span>
+        <label class="check"><input type="radio" name="mode" value="flat" checked> Default spacing, with the text set against the flat side</label>
+        <label class="check"><input type="radio" name="mode" value="stretch"> Stretch the spacing so every line reaches the edge of the circle</label>
+        <label class="check spaced"><input id="outline" type="checkbox"> Include the half-circle outline in the SVG</label>
+      </section>
+
+      <section class="panel">
+        <h2>Preview <span id="status" class="hint"></span></h2>
+        <div class="stage"><div id="preview"></div></div>
+        <p id="warn" class="error" role="status"></p>
+        <div class="actions">
+          <button type="submit" id="downloadBtn">Download SVG</button>
+        </div>
+        <p class="hint">The text is saved as vector outlines, so it looks the same in Canva without installing the font. Canva treats the SVG as a graphic: to change the words, edit them here and download again.</p>
+      </section>
+    </form>
+  </main>
+
+  <script src="vendor/opentype.min.js"></script>
+  <script src="semicircle.js"></script>
+</body>
+</html>
