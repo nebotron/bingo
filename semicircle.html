@@ -3,21 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Half-Circle Text</title>
+  <title>Circle Text</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
-    <nav class="tools"><a href="index.html">Bingo Card Maker</a><a href="semicircle.html" aria-current="page">Half-Circle Text</a></nav>
+    <nav class="tools"><a href="index.html">Bingo Card Maker</a><a href="semicircle.html" aria-current="page">Circle Text</a></nav>
     <header>
-      <h1>Half-Circle Text</h1>
-      <p class="sub">Wrap text inside a half-circle and download it as an SVG for Canva or any other design tool.</p>
+      <h1>Circle Text</h1>
+      <p class="sub">Wrap two texts inside a circle, one in each half, and download it as an SVG for Canva or any other design tool.</p>
     </header>
 
     <form id="form" autocomplete="off">
       <section class="panel">
-        <label for="text">Text <span class="hint">(press Enter to force a line break)</span></label>
-        <textarea id="text" rows="6">Two hearts, one story. Join us as we celebrate the beginning of forever, surrounded by the people we love most.</textarea>
+        <div class="grid2">
+          <div>
+            <label for="leftText">Left half</label>
+            <textarea id="leftText" rows="7">Two hearts, one story. Join us as we celebrate the beginning of forever, surrounded by the people we love most.</textarea>
+          </div>
+          <div>
+            <label for="rightText">Right half</label>
+            <textarea id="rightText" rows="7">Saturday, the fourteenth of June. Dinner and dancing to follow at the old mill by the river.</textarea>
+          </div>
+        </div>
+        <p class="hint">Press Enter to start a new paragraph.</p>
       </section>
 
       <section class="panel grid2">
@@ -49,26 +58,18 @@
           <label for="tracking">Letter spacing <span class="hint">(1/1000 em)</span></label>
           <input id="tracking" type="number" min="-200" max="1000" step="10" value="0">
         </div>
-        <div>
-          <label for="padding">Inner margin <span class="hint">(px)</span></label>
+        <div class="full">
+          <label for="padding">Margin <span class="hint">(px, from the circle's edge and from the center line)</span></label>
           <input id="padding" type="number" min="0" max="1000" step="1" value="12">
-        </div>
-        <div>
-          <label for="hemisphere">Half</label>
-          <select id="hemisphere">
-            <option value="top" selected>Top: dome, flat side at the bottom</option>
-            <option value="bottom">Bottom: bowl, flat side at the top</option>
-            <option value="left">Left: flat side on the right</option>
-            <option value="right">Right: flat side on the left</option>
-          </select>
         </div>
       </section>
 
       <section class="panel">
         <span class="label">Spacing</span>
-        <label class="check"><input type="radio" name="mode" value="flat" checked> Default spacing, with the text set against the flat side</label>
+        <label class="check"><input type="radio" name="mode" value="flat" checked> Default spacing, with the text set against the center line</label>
         <label class="check"><input type="radio" name="mode" value="stretch"> Stretch the spacing so every line reaches the edge of the circle</label>
-        <label class="check spaced"><input id="outline" type="checkbox"> Include the half-circle outline in the SVG</label>
+        <label class="check spaced"><input id="outline" type="checkbox"> Include the circle outline in the SVG</label>
+        <label class="check"><input id="divider" type="checkbox"> Include the center line in the SVG</label>
       </section>
 
       <section class="panel">

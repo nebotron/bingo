@@ -1,10 +1,10 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "half-circle-text:v1";
+  const STORAGE_KEY = "half-circle-text:v2";
   const $ = (id) => document.getElementById(id);
-  const fields = ["text", "font", "bold", "color", "fontSize", "radius", "lineHeight",
-    "tracking", "padding", "hemisphere", "outline"];
+  const fields = ["leftText", "rightText", "font", "bold", "color", "fontSize", "radius",
+    "lineHeight", "tracking", "padding", "outline", "divider"];
 
   // ---------- fonts ----------
 
@@ -260,41 +260,62 @@
     return { glyphs, xs, width: x };
   }
 
-  // The rows available for `n` lines of text, in reading order. Each has the
-  // left edge and width of the space the line can use, and its baseline.
-  function slotsFor(n, g) {
-    const { R, pad, r, asc, desc, lh, hemi } = g;
+  // The rows of one half of the circle, from the top down. Each has the left
+  // edge and width of the space a line can use there, and its baseline.
+  function slotsFor(side, g) {
+    const { R, pad, r, asc, desc, lh } = g;
     const slots = [];
-    if (hemi === "top" || hemi === "bottom") {
-      for (let k = 0; k < n; k++) {
-        const i = hemi === "top" ? n - 1 - k : k; // rows counted from the flat side
-        const far = pad + i * lh + asc + desc;     // farthest point from the flat side
-        if (far >= r) return null;
-        const hw = Math.sqrt(r * r - far * far);
-        const baseline = hemi === "top" ? R - pad - desc - i * lh : pad + asc + i * lh;
-        slots.push({ x: R - hw, width: 2 * hw, baseline, align: "center" });
-      }
-    } else {
-      const H = (n - 1) * lh + asc + desc;
-      if (H / 2 >= r) return null;
-      const top = R - H / 2;
-      for (let k = 0; k < n; k++) {
-        const baseline = top + asc + k * lh;
-        const dy = Math.max(Math.abs(baseline - asc - R), Math.abs(baseline + desc - R));
-        const reach = Math.sqrt(r * r - dy * dy);
-        const width = reach - pad;
-        if (width <= 0) return null;
-        slots.push(hemi === "right"
-          ? { x: pad, width, baseline, align: "left" }
-          : { x: R - reach, width, baseline, align: "right" });
-      }
+    for (let k = 0; ; k++) {
+      const baseline = pad + asc + k * lh;
+      if (baseline + desc > 2 * R - pad) break;
+      const dy = Math.max(Math.abs(baseline - asc - R), Math.abs(baseline + desc - R));
+      const reach = dy < r ? Math.sqrt(r * r - dy * dy) : 0;
+      const width = Math.max(0, reach - pad);
+      slots.push(side === "left"
+        ? { x: R - pad - width, width, baseline, align: "right" }
+        : { x: R + pad, width, baseline, align: "left" });
     }
     return slots;
   }
 
-  // Greedy word wrap into the given slot widths. Lines only break between
-  // words; a word too wide for a slot leaves that slot empty.
-  function wrap(paras, slots, measure) {
+  // Splits `n` words into exactly `widths.length` lines so that every line is
+  // filled to about the same fraction of its width. Returns the break
+  // positions, or null if there is no way to do it.
+  function balance(ww, sp, widths) {
+    const n = ww.length, k = widths.length;
+    const P = [0];
+    for (const w of ww) P.push(P[P.length - 1] + w);
+    const width = (a, b) => P[b] - P[a] + (b - a - 1) * sp;
+    const cost = [new Float64Array(n + 1).fill(Infinity)];
+    const from = [];
+    cost[0][0] = 0;
+    for (let j = 1; j <= k; j++) {
+      cost[j] = new Float64Array(n + 1).fill(Infinity);
+      from[j] = new Int32Array(n + 1);
+      const W = widths[j - 1];
+      for (let b = j; b <= n - (k - j); b++) {
+        for (let a = b - 1; a >= j - 1; a--) {
+          const w = width(a, b);
+          if (w > W + 1e-6) break;
+          if (cost[j - 1][a] === Infinity) continue;
+          const slack = 1 - w / W;
+          // A lone word can't be stretched to the edge, so avoid one where possible.
+          const lone = b - a === 1 && n > 1 ? 1 : 0;
+          const c = cost[j - 1][a] + slack * slack + lone;
+          if (c < cost[j][b]) { cost[j][b] = c; from[j][b] = a; }
+        }
+      }
+    }
+    if (cost[k][n] === Infinity) return null;
+    const ends = [];
+    for (let j = k, b = n; j > 0; b = from[j][b], j--) ends.unshift(b);
+    return ends;
+  }
+
+  // Wraps one text into the rows of one half. Lines only break between
+  // words. Each paragraph takes as few lines as it can, and its words are then
+  // spread so those lines are evenly full.
+  function wrap(paras, slots, wordWidth, sp) {
     const lines = [];
     let si = 0, placed = 0;
     for (const words of paras) {
@@ -303,80 +324,86 @@
         lines.push({ slot: si++, text: "" });
         continue;
       }
-      let wi = 0;
-      while (wi < words.length && si < slots.length) {
-        let cur = "";
-        while (wi < words.length) {
-          const cand = cur ? cur + " " + words[wi] : words[wi];
-          if (measure(cand) <= slots[si].width + 1e-6) { cur = cand; wi++; } else break;
+      const ww = words.map(wordWidth);
+      // Rows at the top may be too narrow for even the first word.
+      while (si < slots.length && slots[si].width < ww[0]) si++;
+
+      // Greedy fill gives the fewest lines this paragraph can use.
+      const greedy = [];
+      let wi = 0, s = si, gaps = false;
+      while (wi < words.length && s < slots.length) {
+        let cnt = 0, w = 0;
+        while (wi + cnt < words.length) {
+          const nw = cnt ? w + sp + ww[wi + cnt] : ww[wi];
+          if (nw > slots[s].width + 1e-6) break;
+          w = nw;
+          cnt++;
         }
-        lines.push({ slot: si++, text: cur });
+        if (!cnt) gaps = true; // a word too wide for this row: leave it empty
+        greedy.push([s, wi, wi + cnt]);
+        wi += cnt;
+        s++;
       }
+
+      let rows = greedy;
+      if (wi === words.length && !gaps) {
+        const ends = balance(ww, sp, greedy.map(([row]) => slots[row].width));
+        if (ends) rows = greedy.map(([row], j) => [row, j ? ends[j - 1] : 0, ends[j]]);
+      }
+      for (const [row, a, b] of rows) lines.push({ slot: row, text: words.slice(a, b).join(" ") });
       placed += wi;
+      si = s;
       if (wi < words.length) break;
     }
     return { lines, placed };
   }
 
-  function layout(font, opts) {
-    const { size, R, pad, lineHeight, trackingEm, hemi, text } = opts;
-    const scale = size / font.unitsPerEm;
+  function layout(font, o, text, side) {
+    const scale = o.size / font.unitsPerEm;
     const g = {
-      R, pad, hemi,
-      r: R - pad,
+      R: o.R, pad: o.pad,
+      r: o.R - o.pad,
       asc: font.textBox.asc * scale,
       desc: font.textBox.desc * scale,
-      lh: size * lineHeight,
+      lh: o.size * o.lineHeight,
     };
-    const tracking = trackingEm / 1000 * size;
+    const tracking = o.trackingEm / 1000 * o.size;
     const paras = text.replace(/\s+$/, "").split(/\r?\n/).map((p) => p.split(/\s+/).filter(Boolean));
     const totalWords = paras.reduce((s, p) => s + p.length, 0);
     const widths = new Map();
-    const measure = (s) => {
-      let w = widths.get(s);
-      if (w === undefined) { w = shapeLine(font, s, size, tracking).width; widths.set(s, w); }
-      return w;
+    const wordWidth = (w) => {
+      let x = widths.get(w);
+      if (x === undefined) { x = shapeLine(font, w, o.size, tracking).width; widths.set(w, x); }
+      return x;
     };
-
-    let best = { lines: [], placed: 0, slots: [] };
-    for (let n = 1; n <= 500; n++) {
-      const slots = slotsFor(n, g);
-      if (!slots) break;
-      const res = wrap(paras, slots, measure);
-      res.slots = slots;
-      if (res.placed >= best.placed) best = res;
-      if (res.placed === totalWords) break;
-    }
-    return { ...best, totalWords, g, tracking };
+    const space = font.charToGlyphIndex(" ") ? font.charToGlyph(" ").advanceWidth * scale : o.size / 4;
+    const slots = slotsFor(side, g);
+    const res = wrap(paras, slots, wordWidth, space + 2 * tracking);
+    return { ...res, slots, totalWords, tracking };
   }
 
   // SVG path data for the laid-out text.
   function renderPaths(font, lay, size, stretch) {
     const out = [];
+    const spaceIdx = font.charToGlyphIndex(" ");
     for (const line of lay.lines) {
       if (!line.text) continue;
       const slot = lay.slots[line.slot];
-      const shaped = shapeLine(font, line.text, size, lay.tracking);
-      const { glyphs, xs, width } = shaped;
-      const spaceIdx = font.charToGlyphIndex(" ");
-      let start, extraSpace = 0, extraGap = 0;
-      if (stretch) {
-        const extra = Math.max(0, slot.width - width);
-        const spaces = glyphs.filter((gl, i) => gl.index === spaceIdx && i < glyphs.length - 1).length;
-        if (spaces) extraSpace = extra / spaces;
-        else if (glyphs.length > 1) extraGap = extra / (glyphs.length - 1);
-        start = spaces || glyphs.length > 1 ? slot.x : slot.x + (slot.width - width) / 2;
+      const { glyphs, xs, width } = shapeLine(font, line.text, size, lay.tracking);
+      // Stretching widens the spaces between words. A line of one word is
+      // left as it is, set against the center line, rather than letter-spaced.
+      const spaces = glyphs.filter((gl, i) => gl.index === spaceIdx && i < glyphs.length - 1).length;
+      let start, extraSpace = 0;
+      if (stretch && spaces) {
+        extraSpace = Math.max(0, slot.width - width) / spaces;
+        start = slot.x;
       } else if (slot.align === "left") start = slot.x;
-      else if (slot.align === "right") start = slot.x + slot.width - width;
-      else start = slot.x + (slot.width - width) / 2;
+      else start = slot.x + slot.width - width;
 
       let shift = 0;
       let d = "";
       for (let i = 0; i < glyphs.length; i++) {
-        if (i > 0) {
-          shift += extraGap;
-          if (glyphs[i - 1].index === spaceIdx) shift += extraSpace;
-        }
+        if (i > 0 && glyphs[i - 1].index === spaceIdx) shift += extraSpace;
         if (glyphs[i].index === spaceIdx) continue;
         d += glyphs[i].getPath(start + xs[i] + shift, slot.baseline, size).toPathData(2);
       }
@@ -394,7 +421,8 @@
     };
     const R = num("radius", 300, 20, 5000);
     return {
-      text: $("text").value,
+      left: $("leftText").value,
+      right: $("rightText").value,
       fontName: FONT_BY_NAME[$("font").value] ? $("font").value : DEFAULT_FONT,
       bold: $("bold").checked,
       color: $("color").value || "#000000",
@@ -403,9 +431,9 @@
       pad: Math.min(num("padding", 12, 0, 1000), R * 0.45),
       lineHeight: num("lineHeight", 1.2, 0.6, 4),
       trackingEm: num("tracking", 0, -200, 1000),
-      hemi: $("hemisphere").value,
       stretch: document.querySelector('input[name="mode"]:checked').value === "stretch",
       outline: $("outline").checked,
+      divider: $("divider").checked,
     };
   }
 
@@ -416,29 +444,23 @@
 
   const fmt = (n) => +n.toFixed(2);
 
-  function frameSize(o) {
-    return o.hemi === "top" || o.hemi === "bottom" ? [2 * o.R, o.R] : [o.R, 2 * o.R];
-  }
-
-  // The half-circle's outline, inset by `inset` so a stroke stays inside.
-  function framePath(o, inset) {
-    const R = o.R, a = R - inset, e = inset;
-    switch (o.hemi) {
-      case "top": return `M${fmt(e)} ${fmt(R - e)}A${fmt(a)} ${fmt(a)} 0 0 1 ${fmt(2 * R - e)} ${fmt(R - e)}Z`;
-      case "bottom": return `M${fmt(e)} ${fmt(e)}A${fmt(a)} ${fmt(a)} 0 0 0 ${fmt(2 * R - e)} ${fmt(e)}Z`;
-      case "right": return `M${fmt(e)} ${fmt(e)}A${fmt(a)} ${fmt(a)} 0 0 1 ${fmt(e)} ${fmt(2 * R - e)}Z`;
-      default: return `M${fmt(R - e)} ${fmt(e)}A${fmt(a)} ${fmt(a)} 0 0 0 ${fmt(R - e)} ${fmt(2 * R - e)}Z`;
-    }
-  }
+  // The circle, inset by `e` so a stroke stays inside the frame.
+  const circlePath = (R, e) => {
+    const a = fmt(R - e);
+    return `M${fmt(e)} ${fmt(R)}A${a} ${a} 0 1 1 ${fmt(2 * R - e)} ${fmt(R)}A${a} ${a} 0 1 1 ${fmt(e)} ${fmt(R)}Z`;
+  };
+  const dividerPath = (R) => `M${fmt(R)} 0V${fmt(2 * R)}`;
 
   function buildSvg(o, paths, preview) {
-    const [w, h] = frameSize(o);
-    const parts = [`<svg xmlns="http://www.w3.org/2000/svg" width="${fmt(w)}" height="${fmt(h)}" viewBox="0 0 ${fmt(w)} ${fmt(h)}">`];
+    const s = fmt(2 * o.R);
+    const parts = [`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">`];
     if (preview) {
-      parts.push(`<path class="frame-fill" d="${framePath(o, 0)}"/>`);
-      if (!o.outline) parts.push(`<path class="frame-guide" d="${framePath(o, 0.5)}" vector-effect="non-scaling-stroke"/>`);
+      parts.push(`<path class="frame-fill" d="${circlePath(o.R, 0)}"/>`);
+      if (!o.outline) parts.push(`<path class="frame-guide" d="${circlePath(o.R, 0.5)}"/>`);
+      if (!o.divider) parts.push(`<path class="frame-guide" d="${dividerPath(o.R)}"/>`);
     }
-    if (o.outline) parts.push(`<path d="${framePath(o, 0.5)}" fill="none" stroke="${o.color}" stroke-width="1"/>`);
+    if (o.outline) parts.push(`<path d="${circlePath(o.R, 0.5)}" fill="none" stroke="${o.color}" stroke-width="1"/>`);
+    if (o.divider) parts.push(`<path d="${dividerPath(o.R)}" fill="none" stroke="${o.color}" stroke-width="1"/>`);
     for (const d of paths) parts.push(`<path d="${d}" fill="${o.color}"/>`);
     parts.push("</svg>");
     return parts.join("\n");
@@ -463,26 +485,30 @@
     if (seq !== renderSeq) return;
     $("status").textContent = "";
 
-    const lay = layout(font, o);
-    const paths = renderPaths(font, lay, o.size, o.stretch);
+    const paths = [];
+    const warnings = [];
+    for (const side of ["left", "right"]) {
+      const lay = layout(font, o, o[side], side);
+      paths.push(...renderPaths(font, lay, o.size, o.stretch));
+      const missing = lay.totalWords - lay.placed;
+      if (missing) warnings.push(`${missing} word${missing === 1 ? "" : "s"} on the ${side} didn't fit.`);
+    }
     $("preview").innerHTML = buildSvg(o, paths, true);
     current = { svg: buildSvg(o, paths, false) };
-
-    const missing = lay.totalWords - lay.placed;
-    $("warn").textContent = missing
-      ? `${missing} word${missing === 1 ? "" : "s"} didn't fit. Use a smaller font size or a larger radius, or press Fit to frame.`
+    $("warn").textContent = warnings.length
+      ? warnings.join(" ") + " Use a smaller font size or a larger radius, or press Fit to frame."
       : "";
     $("downloadBtn").disabled = !paths.length;
   }
 
-  // Largest font size (to 0.5px) at which all the text fits.
+  // Largest font size (to 0.5px) at which all the text on both sides fits.
   async function fitToFrame() {
     const o = readOpts();
     const font = await loadFont(fontFileFor(o));
-    const fits = (size) => {
-      const lay = layout(font, { ...o, size });
+    const fits = (size) => ["left", "right"].every((side) => {
+      const lay = layout(font, { ...o, size }, o[side], side);
       return lay.placed === lay.totalWords;
-    };
+    });
     let lo = 4, hi = Math.min(1000, o.R);
     if (!fits(lo)) { $("fontSize").value = lo; return; }
     while (hi - lo > 0.5) {
@@ -497,7 +523,7 @@
     const blob = new Blob([current.svg], { type: "image/svg+xml" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "half-circle-text.svg";
+    a.download = "circle-text.svg";
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -545,7 +571,6 @@
         else $(f).value = data[f];
       }
       if (!FONT_BY_NAME[$("font").value]) $("font").value = DEFAULT_FONT;
-      if (!$("hemisphere").value) $("hemisphere").value = "top";
       const radio = document.querySelector(`input[name="mode"][value="${data.mode}"]`);
       if (radio) radio.checked = true;
     } catch (e) { /* ignore bad data */ }

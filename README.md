@@ -19,14 +19,15 @@ Optionally, pick an image to print on the back of the cards:
 
 With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The back images extend 1/8" past the cut lines so small printer misalignments don't leave white edges. For a composite, lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
-## Half-circle text
+## Circle text
 
-`semicircle.html` is a second tool: it wraps text inside a half-circle and downloads it as an SVG you can import into Canva or another design tool.
+`semicircle.html` is a second tool: it wraps two texts inside a circle, one in the left half and one in the right, and downloads the result as an SVG you can import into Canva or another design tool.
 
-- Choose the half (top, bottom, left or right), the radius, the font size, line and letter spacing, and an inner margin. **Fit to frame** picks the largest font size at which all the text fits.
-- **Default spacing** keeps normal word spacing and sets the text against the flat side of the half-circle. **Stretch** widens the spaces on every line (or the letter gaps, for a single word) so each line runs to the edge of the circle.
+- Text starts at the top of each half and flows down. Choose the radius, font size, line and letter spacing, and a margin from the circle's edge and the center line. **Fit to frame** picks the largest font size at which both texts fit.
+- **Default spacing** keeps normal word spacing and sets the text against the center line. **Stretch** widens the spaces between words so each line runs from the center line to the edge of the circle. A line holding a single word is not stretched.
+- Each paragraph uses as few lines as it needs, and its words are spread across those lines so they are about equally full. This avoids a cramped line followed by one with huge gaps.
 - Pick from 41 Google Fonts grouped like Canva's (sans serif, serif, display, script, handwritten and monospace), with bold where the font has it.
-- The SVG holds the text as vector outlines, so it looks the same anywhere without installing the font. Optionally include the half-circle outline.
+- The SVG holds the text as vector outlines, so it looks the same anywhere without installing the font. Optionally include the circle outline and the center line.
 
 ## Hosting
 
