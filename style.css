@@ -171,3 +171,18 @@ input[type="color"] {
 #preview svg { display: block; max-width: 100%; max-height: 65vh; width: auto; height: auto; }
 #preview .frame-fill { fill: #f2f0ea; }
 #preview .frame-guide { fill: none; stroke: #b9b6ad; stroke-width: 1; stroke-dasharray: 5 4; }
+
+/* Style controls: one set shared by both halves, or one per half */
+h3 { margin: 0; font-size: 1rem; }
+.styles { margin-top: 14px; }
+.styles.split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.style-side { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
+.styles.split .style-side { grid-template-columns: 1fr; }
+.styles.split .style-side + .style-side { border-left: 1px solid var(--border); padding-left: 20px; }
+.style-side .full { grid-column: 1 / -1; }
+.style-side label { margin-top: 0; }
+.style-side .check { margin-top: 8px; }
+@media (max-width: 520px) {
+  .styles.split, .style-side { grid-template-columns: 1fr; }
+  .styles.split .style-side + .style-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 16px; }
+}
