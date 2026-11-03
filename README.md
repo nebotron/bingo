@@ -23,9 +23,10 @@ With a back image, the PDF alternates front and back pages. Print it double-side
 
 `semicircle.html` is a second tool: it wraps two texts inside a circle, one in the left half and one in the right, and downloads the result as an SVG you can import into Canva or another design tool.
 
-- Text starts at the top of each half and flows down. Choose the radius, font size, line and letter spacing, and a margin from the circle's edge and the center line. **Fit to frame** picks the largest font size at which both texts fit.
+- Text starts at the top of each half and flows down. Choose the radius, font size, line and letter spacing, and a margin from the circle's edge and the center line. **Fit to frame** picks the largest font size at which the text fits.
 - **Default spacing** keeps normal word spacing and sets the text against the center line. **Stretch** widens the spaces between words so each line runs from the center line to the edge of the circle. A line holding a single word is not stretched.
 - Each paragraph uses as few lines as it needs, and its words are spread across those lines so they are about equally full. This avoids a cramped line followed by one with huge gaps.
+- By default both halves share one style. Tick **Style each half separately** to give each half its own font, bold, color, font size, line and letter spacing, and word spacing; each half then starts from the shared style, and its **Fit to frame** sizes only that half. The circle outline and center line use the left half's color.
 - Pick from 41 Google Fonts grouped like Canva's (sans serif, serif, display, script, handwritten and monospace), with bold where the font has it.
 - The SVG holds the text as vector outlines, so it looks the same anywhere without installing the font. Optionally include the circle outline and the center line.
 

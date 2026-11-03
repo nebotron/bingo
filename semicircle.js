@@ -1,10 +1,17 @@
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "half-circle-text:v2";
+  const STORAGE_KEY = "half-circle-text:v3";
+  const OLD_STORAGE_KEY = "half-circle-text:v2";
   const $ = (id) => document.getElementById(id);
-  const fields = ["leftText", "rightText", "font", "bold", "color", "fontSize", "radius",
-    "lineHeight", "tracking", "padding", "outline", "divider"];
+  const SIDES = ["left", "right"];
+  // Style controls that each half has its own copy of. The ids are `left-font`,
+  // `right-font` and so on; while the halves share a style, the left set is
+  // the shared one.
+  const STYLE_FIELDS = ["font", "bold", "color", "fontSize", "lineHeight", "tracking"];
+  const sideId = (side, f) => `${side}-${f}`;
+  const fields = ["leftText", "rightText", "radius", "padding", "outline", "divider", "split"];
+  for (const side of SIDES) for (const f of STYLE_FIELDS) fields.push(sideId(side, f));
 
   // ---------- fonts ----------
 
@@ -414,33 +421,56 @@
 
   // ---------- form ----------
 
-  function readOpts() {
-    const num = (id, def, min, max) => {
-      const v = parseFloat($(id).value);
-      return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def;
-    };
-    const R = num("radius", 300, 20, 5000);
+  const isSplit = () => $("split").checked;
+  // The side whose controls style `side`: its own when split, else the left's.
+  const styleSide = (side) => (isSplit() ? side : "left");
+  const modeOf = (side) => {
+    const r = document.querySelector(`input[name="${sideId(side, "mode")}"]:checked`);
+    return r ? r.value : "flat";
+  };
+
+  function num(id, def, min, max) {
+    const v = parseFloat($(id).value);
+    return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def;
+  }
+
+  function readStyle(side) {
+    const s = styleSide(side);
+    const font = $(sideId(s, "font")).value;
     return {
-      left: $("leftText").value,
-      right: $("rightText").value,
-      fontName: FONT_BY_NAME[$("font").value] ? $("font").value : DEFAULT_FONT,
-      bold: $("bold").checked,
-      color: $("color").value || "#000000",
-      size: num("fontSize", 28, 4, 1000),
-      R,
-      pad: Math.min(num("padding", 12, 0, 1000), R * 0.45),
-      lineHeight: num("lineHeight", 1.2, 0.6, 4),
-      trackingEm: num("tracking", 0, -200, 1000),
-      stretch: document.querySelector('input[name="mode"]:checked').value === "stretch",
-      outline: $("outline").checked,
-      divider: $("divider").checked,
+      fontName: FONT_BY_NAME[font] ? font : DEFAULT_FONT,
+      bold: $(sideId(s, "bold")).checked,
+      color: $(sideId(s, "color")).value || "#000000",
+      size: num(sideId(s, "fontSize"), 28, 4, 1000),
+      lineHeight: num(sideId(s, "lineHeight"), 1.2, 0.6, 4),
+      trackingEm: num(sideId(s, "tracking"), 0, -200, 1000),
+      stretch: modeOf(s) === "stretch",
     };
   }
 
-  function fontFileFor(o) {
-    const f = FONT_BY_NAME[o.fontName];
-    return o.bold && f.bold ? f.bold : f.normal;
+  function readOpts() {
+    const R = num("radius", 300, 20, 5000);
+    const o = {
+      R,
+      pad: Math.min(num("padding", 12, 0, 1000), R * 0.45),
+      outline: $("outline").checked,
+      divider: $("divider").checked,
+      text: { left: $("leftText").value, right: $("rightText").value },
+      style: {},
+    };
+    for (const side of SIDES) o.style[side] = readStyle(side);
+    // The outline and center line take the left half's color.
+    o.lineColor = o.style.left.color;
+    return o;
   }
+
+  function fontFileFor(st) {
+    const f = FONT_BY_NAME[st.fontName];
+    return st.bold && f.bold ? f.bold : f.normal;
+  }
+
+  // Lays out one half with its own style.
+  const layoutSide = (font, o, side, st) => layout(font, { R: o.R, pad: o.pad, ...st }, o.text[side], side);
 
   const fmt = (n) => +n.toFixed(2);
 
@@ -451,6 +481,7 @@
   };
   const dividerPath = (R) => `M${fmt(R)} 0V${fmt(2 * R)}`;
 
+  // `paths` is a list of { d, color }.
   function buildSvg(o, paths, preview) {
     const s = fmt(2 * o.R);
     const parts = [`<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">`];
@@ -459,9 +490,9 @@
       if (!o.outline) parts.push(`<path class="frame-guide" d="${circlePath(o.R, 0.5)}"/>`);
       if (!o.divider) parts.push(`<path class="frame-guide" d="${dividerPath(o.R)}"/>`);
     }
-    if (o.outline) parts.push(`<path d="${circlePath(o.R, 0.5)}" fill="none" stroke="${o.color}" stroke-width="1"/>`);
-    if (o.divider) parts.push(`<path d="${dividerPath(o.R)}" fill="none" stroke="${o.color}" stroke-width="1"/>`);
-    for (const d of paths) parts.push(`<path d="${d}" fill="${o.color}"/>`);
+    if (o.outline) parts.push(`<path d="${circlePath(o.R, 0.5)}" fill="none" stroke="${o.lineColor}" stroke-width="1"/>`);
+    if (o.divider) parts.push(`<path d="${dividerPath(o.R)}" fill="none" stroke="${o.lineColor}" stroke-width="1"/>`);
+    for (const p of paths) parts.push(`<path d="${p.d}" fill="${p.color}"/>`);
     parts.push("</svg>");
     return parts.join("\n");
   }
@@ -473,9 +504,9 @@
     const seq = ++renderSeq;
     const o = readOpts();
     $("status").textContent = "Loading font…";
-    let font;
+    let fonts;
     try {
-      font = await loadFont(fontFileFor(o));
+      fonts = await Promise.all(SIDES.map((side) => loadFont(fontFileFor(o.style[side]))));
     } catch (e) {
       if (seq !== renderSeq) return;
       $("status").textContent = "";
@@ -487,12 +518,13 @@
 
     const paths = [];
     const warnings = [];
-    for (const side of ["left", "right"]) {
-      const lay = layout(font, o, o[side], side);
-      paths.push(...renderPaths(font, lay, o.size, o.stretch));
+    SIDES.forEach((side, i) => {
+      const st = o.style[side];
+      const lay = layoutSide(fonts[i], o, side, st);
+      for (const d of renderPaths(fonts[i], lay, st.size, st.stretch)) paths.push({ d, color: st.color });
       const missing = lay.totalWords - lay.placed;
       if (missing) warnings.push(`${missing} word${missing === 1 ? "" : "s"} on the ${side} didn't fit.`);
-    }
+    });
     $("preview").innerHTML = buildSvg(o, paths, true);
     current = { svg: buildSvg(o, paths, false) };
     $("warn").textContent = warnings.length
@@ -501,21 +533,25 @@
     $("downloadBtn").disabled = !paths.length;
   }
 
-  // Largest font size (to 0.5px) at which all the text on both sides fits.
-  async function fitToFrame() {
+  // Largest font size (to 0.5px) at which all the text fits, written to the
+  // font size box of `controls`. That box sizes both halves while they share
+  // a style, and only its own half when they are styled separately.
+  async function fitToFrame(controls) {
     const o = readOpts();
-    const font = await loadFont(fontFileFor(o));
-    const fits = (size) => ["left", "right"].every((side) => {
-      const lay = layout(font, { ...o, size }, o[side], side);
+    const sides = isSplit() ? [controls] : SIDES;
+    const fonts = await Promise.all(sides.map((side) => loadFont(fontFileFor(o.style[side]))));
+    const fits = (size) => sides.every((side, i) => {
+      const lay = layoutSide(fonts[i], o, side, { ...o.style[side], size });
       return lay.placed === lay.totalWords;
     });
+    const box = $(sideId(controls, "fontSize"));
     let lo = 4, hi = Math.min(1000, o.R);
-    if (!fits(lo)) { $("fontSize").value = lo; return; }
+    if (!fits(lo)) { box.value = lo; return; }
     while (hi - lo > 0.5) {
       const mid = (lo + hi) / 2;
       if (fits(mid)) lo = mid; else hi = mid;
     }
-    $("fontSize").value = Math.floor(lo * 2) / 2;
+    box.value = Math.floor(lo * 2) / 2;
   }
 
   function download() {
@@ -530,49 +566,113 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  function populateFonts() {
-    const sel = $("font");
-    for (const [group, list] of FONTS) {
-      const og = document.createElement("optgroup");
-      og.label = group;
-      for (const [name] of list) {
-        const opt = document.createElement("option");
-        opt.value = opt.textContent = name;
-        og.appendChild(opt);
+  // Builds one set of style controls per half from the template.
+  function buildStyleControls() {
+    const tpl = $("styleTpl");
+    for (const side of SIDES) {
+      const box = tpl.content.firstElementChild.cloneNode(true);
+      box.dataset.side = side;
+      box.querySelector(".side-title").textContent = side === "left" ? "Left half" : "Right half";
+      for (const el of box.querySelectorAll("[data-f]")) {
+        if (el.type === "radio") el.name = sideId(side, el.dataset.f);
+        else el.id = sideId(side, el.dataset.f);
       }
-      sel.appendChild(og);
+      for (const el of box.querySelectorAll("[data-for]")) el.htmlFor = sideId(side, el.dataset.for);
+      const sel = box.querySelector('[data-f="font"]');
+      for (const [group, list] of FONTS) {
+        const og = document.createElement("optgroup");
+        og.label = group;
+        for (const [name] of list) {
+          const opt = document.createElement("option");
+          opt.value = opt.textContent = name;
+          og.appendChild(opt);
+        }
+        sel.appendChild(og);
+      }
+      sel.value = DEFAULT_FONT;
+      box.querySelector('[data-f="fit"]').addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try { await fitToFrame(side); } finally { btn.disabled = false; }
+        onChange();
+      });
+      $("styles").appendChild(box);
     }
-    sel.value = DEFAULT_FONT;
+  }
+
+  // Copies the left half's style onto the right half.
+  function copyStyleToRight() {
+    for (const f of STYLE_FIELDS) {
+      const from = $(sideId("left", f)), to = $(sideId("right", f));
+      if (from.type === "checkbox") to.checked = from.checked; else to.value = from.value;
+    }
+    setMode("right", modeOf("left"));
+  }
+
+  function setMode(side, value) {
+    const radio = document.querySelector(`input[name="${sideId(side, "mode")}"][value="${value}"]`);
+    if (radio) radio.checked = true;
+  }
+
+  function updateSplit() {
+    const split = isSplit();
+    $("styles").classList.toggle("split", split);
+    for (const box of $("styles").children) {
+      box.hidden = !split && box.dataset.side === "right";
+      box.querySelector(".side-title").hidden = !split;
+    }
   }
 
   function updateBold() {
-    const f = FONT_BY_NAME[$("font").value];
-    const has = !!(f && f.bold);
-    $("bold").disabled = !has;
-    $("bold").closest("label").classList.toggle("disabled", !has);
+    for (const side of SIDES) {
+      const f = FONT_BY_NAME[$(sideId(side, "font")).value];
+      const has = !!(f && f.bold);
+      const bold = $(sideId(side, "bold"));
+      bold.disabled = !has;
+      bold.closest("label").classList.toggle("disabled", !has);
+    }
   }
 
   function saveForm() {
     try {
       const data = {};
       for (const f of fields) data[f] = $(f).type === "checkbox" ? $(f).checked : $(f).value;
-      data.mode = document.querySelector('input[name="mode"]:checked').value;
+      for (const side of SIDES) data[sideId(side, "mode")] = modeOf(side);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) { /* storage unavailable */ }
   }
 
+  // Settings saved before the halves could be styled separately had one set
+  // of style controls; they become the shared style.
+  function upgradeOld(old) {
+    const data = { split: false };
+    for (const f of ["leftText", "rightText", "radius", "padding", "outline", "divider"]) {
+      if (f in old) data[f] = old[f];
+    }
+    for (const side of SIDES) {
+      for (const f of STYLE_FIELDS) if (f in old) data[sideId(side, f)] = old[f];
+      if (old.mode) data[sideId(side, "mode")] = old.mode;
+    }
+    return data;
+  }
+
   function loadForm() {
     try {
-      const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      let data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (!data) {
+        const old = JSON.parse(localStorage.getItem(OLD_STORAGE_KEY) || "null");
+        if (old) data = upgradeOld(old);
+      }
       if (!data) return;
       for (const f of fields) {
         if (!(f in data)) continue;
         if ($(f).type === "checkbox") $(f).checked = !!data[f];
         else $(f).value = data[f];
       }
-      if (!FONT_BY_NAME[$("font").value]) $("font").value = DEFAULT_FONT;
-      const radio = document.querySelector(`input[name="mode"][value="${data.mode}"]`);
-      if (radio) radio.checked = true;
+      for (const side of SIDES) {
+        if (!FONT_BY_NAME[$(sideId(side, "font")).value]) $(sideId(side, "font")).value = DEFAULT_FONT;
+        setMode(side, data[sideId(side, "mode")]);
+      }
     } catch (e) { /* ignore bad data */ }
   }
 
@@ -584,16 +684,17 @@
     timer = setTimeout(render, 60);
   }
 
-  populateFonts();
+  buildStyleControls();
   loadForm();
+  updateSplit();
   updateBold();
+  // Splitting starts both halves from the style they shared.
+  $("split").addEventListener("change", () => {
+    if (isSplit()) copyStyleToRight();
+    updateSplit();
+  });
   $("form").addEventListener("input", onChange);
   $("form").addEventListener("change", onChange);
   $("form").addEventListener("submit", (e) => { e.preventDefault(); download(); });
-  $("fitBtn").addEventListener("click", async () => {
-    $("fitBtn").disabled = true;
-    try { await fitToFrame(); } finally { $("fitBtn").disabled = false; }
-    onChange();
-  });
   render();
 })();

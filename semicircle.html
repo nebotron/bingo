@@ -31,46 +31,59 @@
 
       <section class="panel grid2">
         <div>
-          <label for="font">Font</label>
-          <select id="font"></select>
-          <label class="check"><input id="bold" type="checkbox"> Bold</label>
-        </div>
-        <div>
-          <label for="color">Text color</label>
-          <input id="color" type="color" value="#1d1d1f">
-        </div>
-        <div>
-          <label for="fontSize">Font size <span class="hint">(px)</span></label>
-          <div class="inline">
-            <input id="fontSize" type="number" min="4" max="1000" step="0.5" value="28">
-            <button type="button" id="fitBtn" class="secondary small">Fit to frame</button>
-          </div>
-        </div>
-        <div>
           <label for="radius">Radius <span class="hint">(px)</span></label>
           <input id="radius" type="number" min="20" max="5000" step="1" value="300">
         </div>
         <div>
-          <label for="lineHeight">Line spacing</label>
-          <input id="lineHeight" type="number" min="0.6" max="4" step="0.05" value="1.2">
-        </div>
-        <div>
-          <label for="tracking">Letter spacing <span class="hint">(1/1000 em)</span></label>
-          <input id="tracking" type="number" min="-200" max="1000" step="10" value="0">
+          <label for="padding">Margin <span class="hint">(px, from the edge and the center line)</span></label>
+          <input id="padding" type="number" min="0" max="1000" step="1" value="12">
         </div>
         <div class="full">
-          <label for="padding">Margin <span class="hint">(px, from the circle's edge and from the center line)</span></label>
-          <input id="padding" type="number" min="0" max="1000" step="1" value="12">
+          <label class="check"><input id="outline" type="checkbox"> Include the circle outline in the SVG</label>
+          <label class="check"><input id="divider" type="checkbox"> Include the center line in the SVG</label>
         </div>
       </section>
 
       <section class="panel">
-        <span class="label">Spacing</span>
-        <label class="check"><input type="radio" name="mode" value="flat" checked> Default spacing, with the text set against the center line</label>
-        <label class="check"><input type="radio" name="mode" value="stretch"> Stretch the spacing so every line reaches the edge of the circle</label>
-        <label class="check spaced"><input id="outline" type="checkbox"> Include the circle outline in the SVG</label>
-        <label class="check"><input id="divider" type="checkbox"> Include the center line in the SVG</label>
+        <h2>Style</h2>
+        <label class="check"><input id="split" type="checkbox"> Style each half separately</label>
+        <div id="styles" class="styles"></div>
       </section>
+
+      <template id="styleTpl">
+        <div class="style-side">
+          <h3 class="side-title full"></h3>
+          <div>
+            <label data-for="font">Font</label>
+            <select data-f="font"></select>
+            <label class="check"><input data-f="bold" type="checkbox"> Bold</label>
+          </div>
+          <div>
+            <label data-for="color">Text color</label>
+            <input data-f="color" type="color" value="#1d1d1f">
+          </div>
+          <div>
+            <label data-for="fontSize">Font size <span class="hint">(px)</span></label>
+            <div class="inline">
+              <input data-f="fontSize" type="number" min="4" max="1000" step="0.5" value="28">
+              <button type="button" data-f="fit" class="secondary small">Fit to frame</button>
+            </div>
+          </div>
+          <div>
+            <label data-for="lineHeight">Line spacing</label>
+            <input data-f="lineHeight" type="number" min="0.6" max="4" step="0.05" value="1.2">
+          </div>
+          <div>
+            <label data-for="tracking">Letter spacing <span class="hint">(1/1000 em)</span></label>
+            <input data-f="tracking" type="number" min="-200" max="1000" step="10" value="0">
+          </div>
+          <div class="full">
+            <span class="label">Word spacing</span>
+            <label class="check"><input type="radio" data-f="mode" value="flat" checked> Default, with the text set against the center line</label>
+            <label class="check"><input type="radio" data-f="mode" value="stretch"> Stretch so every line reaches the edge of the circle</label>
+          </div>
+        </div>
+      </template>
 
       <section class="panel">
         <h2>Preview <span id="status" class="hint"></span></h2>
