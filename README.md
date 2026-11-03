@@ -41,3 +41,5 @@ python3 -m http.server
 ```
 
 Font outlines come from [opentype.js](https://github.com/opentypejs/opentype.js) 1.3.4 (MIT), vendored in `vendor/`. PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
+
+The pages link `style.css`, `app.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
