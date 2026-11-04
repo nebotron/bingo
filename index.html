@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bingo Card Maker</title>
-  <link rel="stylesheet" href="style.css?v=20261105b">
+  <link rel="stylesheet" href="style.css?v=20261105d">
 </head>
 <body>
   <main>
@@ -70,13 +70,11 @@
 
       <section class="panel">
         <label for="bgFile">Card back image <span class="hint">(optional)</span></label>
-        <input id="bgFile" type="file" accept="image/*">
-        <label for="bgMode">How to use the image</label>
-        <select id="bgMode">
-          <option value="none" selected>None: no image on the backs</option>
-          <option value="simple">Simple: the same image on the back of every card</option>
-          <option value="composite">Composite: the card backs combine into one large picture</option>
-        </select>
+        <div class="file-row">
+          <input id="bgFile" type="file" accept="image/*">
+          <button type="button" id="bgClear" class="secondary" hidden>Remove image</button>
+        </div>
+        <p class="hint">The card backs combine into one large picture.</p>
         <div id="bgOptions" hidden>
           <div class="grid2 spaced">
             <div id="arrangeWrap">
@@ -114,6 +112,6 @@
   <script src="vendor/jspdf.umd.min.js"></script>
   <script src="pdf-fonts.js?v=20261105b"></script>
   <script src="pnw-art.js?v=20261105b"></script>
-  <script src="app.js?v=20261105c"></script>
+  <script src="app.js?v=20261105d"></script>
 </body>
 </html>

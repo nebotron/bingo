@@ -84,6 +84,9 @@ button {
   cursor: pointer;
 }
 button.secondary { background: transparent; color: var(--accent); }
+.file-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.file-row input[type="file"] { flex: 1 1 200px; min-width: 0; }
+.file-row button { padding: 6px 12px; }
 button:disabled { opacity: 0.6; cursor: default; }
 .error { color: var(--error); min-height: 1.2em; margin: 0 0 8px; }
 

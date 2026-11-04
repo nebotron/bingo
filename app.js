@@ -5,7 +5,7 @@
   const SAVE_VERSION = 2;
   const $ = (id) => document.getElementById(id);
   const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
-    "size", "count", "paper", "bgMode", "arrange", "flip"];
+    "size", "count", "paper", "arrange", "flip"];
 
   // Page geometry, in points. Cards are cut at their slot edges, so when a
   // back image is used the slot is the trim box.
@@ -64,7 +64,8 @@
       count: Math.max(1, Math.min(1000, parseInt($("count").value, 10) || 1)),
       perPage: CARDS_PER_PAGE,
       paper: $("paper").value,
-      bgMode: $("bgMode").value,
+      // The backs form one picture when an image is chosen; none without one.
+      bgMode: bgImage ? "composite" : "none",
       arrange: $("arrange").value,
       flip: $("flip").value,
     };
@@ -236,10 +237,6 @@
   function backImages(s) {
     const { w, h } = pageLayout(s);
     const bw = w + 2 * BLEED, bh = h + 2 * BLEED;
-    if (s.bgMode === "simple") {
-      const data = renderRegion(w, h, { x: -BLEED, y: -BLEED, w: bw, h: bh });
-      return () => ({ data, alias: "back" });
-    }
     const [cols, rows] = compositeGrid(s);
     const cache = new Map();
     return (i) => {
@@ -260,36 +257,31 @@
     const s = readSettings();
     const on = s.bgMode !== "none";
     $("bgOptions").hidden = !on;
-    $("arrangeWrap").hidden = s.bgMode !== "composite";
+    $("bgClear").hidden = !on;
     const canvas = $("bgPreview");
-    canvas.hidden = !(on && bgImage);
+    canvas.hidden = !on;
     const hint = $("bgHint");
     if (!on) return;
 
     const layout = pageLayout(s);
-    const [cols, rows] = s.bgMode === "composite" ? compositeGrid(s) : [1, 1];
+    const [cols, rows] = compositeGrid(s);
     const fmt = (pt) => `${(pt / 72).toFixed(2)}″`;
     const cut = `Cut each card to ${fmt(layout.w)} × ${fmt(layout.h)} along the crop marks.`;
     const squares = cols * rows;
-    if (s.bgMode === "composite") {
-      let text = `The picture is ${cols} cards across and ${rows} down (${squares} square${squares === 1 ? "" : "s"}). `;
-      if (s.count > squares) {
-        const sets = Math.floor(s.count / squares), extra = s.count % squares;
-        text += `With ${s.count} cards the picture repeats every ${squares} card${squares === 1 ? "" : "s"}: ` +
-          `${sets} full picture${sets === 1 ? "" : "s"}${extra ? ` plus ${extra} extra card${extra === 1 ? "" : "s"}` : ""}. `;
-      } else if (s.count < squares) {
-        text += `With only ${s.count} card${s.count === 1 ? "" : "s"}, ${squares - s.count} square${squares - s.count === 1 ? " is" : "s are"} left empty. `;
-      }
-      hint.textContent = text + cut + " Lay the cards out front side up in number order (left to right, then top to bottom), " +
-        "then turn each one over where it lies.";
-    } else {
-      hint.textContent = `${cut} Print double-sided and ${s.flip === "short" ? "flip on the short edge" : "flip on the long edge"}.`;
+    let text = `The picture is ${cols} cards across and ${rows} down (${squares} square${squares === 1 ? "" : "s"}). `;
+    if (s.count > squares) {
+      const sets = Math.floor(s.count / squares), extra = s.count % squares;
+      text += `With ${s.count} cards the picture repeats every ${squares} card${squares === 1 ? "" : "s"}: ` +
+        `${sets} full picture${sets === 1 ? "" : "s"}${extra ? ` plus ${extra} extra card${extra === 1 ? "" : "s"}` : ""}. `;
+    } else if (s.count < squares) {
+      text += `With only ${s.count} card${s.count === 1 ? "" : "s"}, ${squares - s.count} square${squares - s.count === 1 ? " is" : "s are"} left empty. `;
     }
-    if (s.bgMode === "composite" && !parseGrid(s.arrange) && (cols === 1 || rows === 1) && s.count > 3) {
+    hint.textContent = text + cut + " Lay the cards out front side up in number order (left to right, then top to bottom), " +
+      "then turn each one over where it lies.";
+    if (!parseGrid(s.arrange) && (cols === 1 || rows === 1) && s.count > 3) {
       hint.textContent += ` Tip: ${s.count} cards only make a single strip; a count like ` +
         `${Math.max(4, Math.round(Math.sqrt(s.count)) ** 2)} gives a fuller grid.`;
     }
-    if (!bgImage) return;
 
     // Preview the picture as it will be cut, with each piece's card number.
     const W = cols * layout.w, H = rows * layout.h;
@@ -334,16 +326,12 @@
   }
 
   function loadImage(file) {
-    if (!file) { bgImage = null; updateBackground(); return; }
+    if (!file) { bgImage = null; updateBackground(); regenerate(); return; }
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       bgImage = img;
       showBack = true;
-      if ($("bgMode").value === "none") {
-        $("bgMode").value = "simple";
-        saveForm();
-      }
       updateBackground();
       regenerate();
     };
@@ -363,8 +351,7 @@
     if (s.clues.length < need) {
       return `A ${s.size}×${s.size} card needs ${need} unique clues; you have ${s.clues.length}.`;
     }
-    if (s.bgMode !== "none" && !bgImage) return "Choose an image for the card backs.";
-    if (s.bgMode === "composite" && parseGrid(s.arrange) === false) {
+    if (s.bgMode !== "none" && parseGrid(s.arrange) === false) {
       return `Enter the picture grid as columns × rows, like 4x5 (up to ${MAX_GRID} each), or leave it blank for auto.`;
     }
     return "";
@@ -720,7 +707,11 @@
   $("count").addEventListener("input", updateBackground);
   $("arrange").addEventListener("input", updateBackground);
   $("form").addEventListener("change", updateBackground);
-  for (const id of ["bgMode", "arrange", "flip"]) {
+  $("bgClear").addEventListener("click", () => {
+    $("bgFile").value = "";
+    loadImage(null);
+  });
+  for (const id of ["arrange", "flip"]) {
     $(id).addEventListener("change", () => { showBack = true; });
   }
   window.addEventListener("resize", updateBackground);

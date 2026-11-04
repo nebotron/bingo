@@ -13,12 +13,11 @@ Each card draws a random selection of your clues in a random order. Duplicate cl
 
 ## Card back images
 
-Optionally, pick an image to print on the back of the cards:
+Optionally, pick an image to print on the back of the cards. With no image, the cards have plain backs and the PDF has front pages only. **Remove image** clears it.
 
-- **Simple**: the same image goes on the back of every card.
-- **Composite**: the image is sliced so that the card backs, laid side by side, form one large picture. Type the grid size (columns × rows, like `4x5`), or leave it blank to let the app pick the grid that best fits the image. If there are more cards than grid squares, the picture repeats: cards 1 to N make one complete picture, the next N another, and so on. Each card's front shows its number, its row and column, and a small map of where it goes.
+The image is sliced so that the card backs, laid side by side, form one large picture. Type the grid size (columns × rows, like `4x5`), or leave it blank to let the app pick the grid that best fits the image. If there are more cards than grid squares, the picture repeats: cards 1 to N make one complete picture, the next N another, and so on (a `1x1` grid puts the whole image on every card). Each card's front shows its number, its row and column, and a small map of where it goes.
 
-With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The whole image is always printed: it is scaled to fit inside the cut cards (one card in Simple mode, the full grid of cards in Composite mode) and never cropped, so if its shape differs from the cards the leftover space is white. Where the image reaches a cut line it extends 1/8" past it, so small printer misalignments don't leave white edges. For a composite, lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
+With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The whole image is always printed: it is scaled to fit inside the cut cards (the full grid of cards) and never cropped, so if its shape differs from the cards the leftover space is white. Where the image reaches a cut line it extends 1/8" past it, so small printer misalignments don't leave white edges. Lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
 ## Name cards
 
