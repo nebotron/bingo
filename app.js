@@ -17,7 +17,8 @@
   const MAX_DPI = 250;
   const CARDS_PER_PAGE = 4; // always a 2 × 2 sheet
 
-  // The image the user picked; never stored (it can be large).
+  // The image the user picked. It's kept in IndexedDB (it can be too large for
+  // localStorage) so it comes back after a refresh.
   let bgImage = null;
 
   // ---------- fonts ----------
@@ -388,19 +389,44 @@
     }
   }
 
-  function loadImage(file) {
-    if (!file) { bgImage = null; updateBackground(); regenerate(); return; }
+  // ---------- saved back image ----------
+
+  function imageStore(mode, fn) {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open("bingo", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("files");
+        req.onerror = () => resolve(null);
+        req.onsuccess = () => {
+          try {
+            const tx = req.result.transaction("files", mode);
+            const r = fn(tx.objectStore("files"));
+            tx.oncomplete = () => resolve(r && r.result);
+            tx.onerror = tx.onabort = () => resolve(null);
+          } catch (e) { resolve(null); }
+        };
+      } catch (e) { resolve(null); }
+    });
+  }
+  const saveImage = (file) => imageStore("readwrite", (st) => st.put(file, "backImage"));
+  const forgetImage = () => imageStore("readwrite", (st) => st.delete("backImage"));
+  const savedImage = () => imageStore("readonly", (st) => st.get("backImage"));
+
+  // `restored` is true when the image comes back from storage on page load.
+  function loadImage(file, restored = false) {
+    if (!file) { bgImage = null; forgetImage(); updateBackground(); regenerate(); return; }
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       bgImage = img;
-      showBack = true;
+      if (!restored) { showBack = true; saveImage(file); }
       updateBackground();
       regenerate();
     };
     img.onerror = () => {
       bgImage = null;
       URL.revokeObjectURL(url);
+      if (restored) { forgetImage(); return; }
       updateBackground();
       regenerate().then(() => { $("error").textContent = "That file couldn't be read as an image."; });
     };
@@ -913,6 +939,7 @@
   updateFontSamples();
   updateBackground();
   regenerate();
+  savedImage().then((file) => { if (file && !bgImage) loadImage(file, true); });
 
   $("bgFile").addEventListener("change", (e) => loadImage(e.target.files[0]));
   $("count").addEventListener("input", updateBackground);
