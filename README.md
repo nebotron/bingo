@@ -4,9 +4,16 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line. Optionally add a game explanation, which prints between the title and the grid; line breaks you type are kept.
 2. Set the free-space text, or turn the free space off.
-3. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
-4. Choose the grid size, number of cards, cards per page and paper size.
-5. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
+3. Pick a card style. Four are woodland designs drawn as vector ornaments:
+   - **Evergreen**: a double-rule frame, fern sprigs in the top corners and a leaf wreath around the free space.
+   - **Fern & Moss**: a leafy arch over the title, the explanation in a framed panel, and the squares as pale sage tiles.
+   - **Timber**: spaced capitals, a treeline along the bottom and tree rings in the free space. Use plain **Timber** to print on kraft cardstock, or **Timber with kraft background** to print the color.
+   - **Clearing**: three small pines, an open grid and a single green. It uses the least ink.
+
+   **Plain** is the original black-and-white card. Choosing a style also selects its suggested fonts. Fern & Moss and Timber print an explanation heading ("How to play" by default) above or beside the explanation.
+4. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
+5. Choose the grid size, number of cards, cards per page and paper size.
+6. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
 
 Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares. Lines only break between words, never inside one.
 

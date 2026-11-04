@@ -21,6 +21,8 @@
 
         <label for="rules">Game explanation <span class="hint">(optional, printed above the grid)</span></label>
         <textarea id="rules" rows="3" placeholder="Mark a square each time you see it happen. Five in a row wins."></textarea>
+        <label for="rulesHeading">Explanation heading <span class="hint">(printed by the Fern &amp; Moss and Timber styles)</span></label>
+        <input id="rulesHeading" type="text" value="How to play" maxlength="40">
 
         <label for="clues">Clues <span class="hint">(one per line)</span></label>
         <textarea id="clues" rows="14" placeholder="Someone cries during the vows&#10;The DJ plays the Macarena&#10;..."></textarea>
@@ -32,6 +34,11 @@
       </section>
 
       <section class="panel grid2">
+        <div class="full">
+          <label for="style">Card style</label>
+          <select id="style"></select>
+          <p class="hint">Evergreen, Fern &amp; Moss, Timber and Clearing are woodland designs. Choosing one also selects its fonts.</p>
+        </div>
         <div>
           <label for="titleFont">Title font</label>
           <select id="titleFont" class="font-select"></select>

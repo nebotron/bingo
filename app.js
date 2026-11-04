@@ -3,7 +3,7 @@
 
   const STORAGE_KEY = "bingo-card-maker:v1";
   const $ = (id) => document.getElementById(id);
-  const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
+  const fields = ["title", "rules", "rulesHeading", "clues", "style", "free", "useFree", "titleFont", "clueFont",
     "size", "count", "perPage", "paper", "bgMode", "arrange", "flip"];
 
   // Page geometry, in points. Cards are cut at their slot edges, so when a
@@ -118,6 +118,8 @@
     return {
       title: $("title").value.trim(),
       rules,
+      rulesHeading: $("rulesHeading").value.trim(),
+      style: $("style").value,
       clues,
       free: $("free").value.trim() || "FREE",
       useFree: $("useFree").checked,
@@ -482,75 +484,369 @@
     }
   }
 
+  // ---------- card styles ----------
+
+  // Vector ornaments. Coordinates are PDF points, y pointing down.
+
+  // A pointed leaf of length `len` growing from (x, y) in direction `deg`.
+  function leafAt(doc, x, y, len, deg) {
+    const a = (deg * Math.PI) / 180, c = Math.cos(a), sn = Math.sin(a);
+    const T = (px, py) => [x + px * c - py * sn, y + px * sn + py * c];
+    const bulge = len * 0.213;
+    doc.moveTo(...T(0, 0));
+    doc.curveTo(...T(len / 3, -bulge), ...T((2 * len) / 3, -bulge), ...T(len, 0));
+    doc.curveTo(...T((2 * len) / 3, bulge), ...T(len / 3, bulge), ...T(0, 0));
+    doc.fill();
+  }
+
+  // A stem along a quadratic curve with paired leaves that shrink toward the
+  // tip. Points are in a local frame that `map` converts to page points;
+  // `k` is the local-to-page scale.
+  function branch(doc, map, k, p0, c, p1, count, size, spread, color, color2) {
+    const at = (t) => {
+      const u = 1 - t;
+      return map(u * u * p0[0] + 2 * u * t * c[0] + t * t * p1[0], u * u * p0[1] + 2 * u * t * c[1] + t * t * p1[1]);
+    };
+    const angle = (t) => {
+      const a = at(Math.max(0, t - 0.01)), b = at(Math.min(1, t + 0.01));
+      return (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
+    };
+    const P0 = map(...p0), C = map(...c), P1 = map(...p1);
+    doc.setDrawColor(...color);
+    doc.setLineWidth(Math.max(0.3, size * k * 0.07));
+    doc.setLineCap("round");
+    doc.moveTo(...P0);
+    doc.curveTo(P0[0] + (2 / 3) * (C[0] - P0[0]), P0[1] + (2 / 3) * (C[1] - P0[1]),
+      P1[0] + (2 / 3) * (C[0] - P1[0]), P1[1] + (2 / 3) * (C[1] - P1[1]), ...P1);
+    doc.stroke();
+    doc.setLineCap("butt");
+    for (let i = 1; i <= count; i++) {
+      const t = i / (count + 1);
+      const [x, y] = at(t);
+      const a = angle(t), len = size * k * (1 - t * 0.55);
+      doc.setFillColor(...(color2 && i % 2 ? color2 : color));
+      leafAt(doc, x, y, len, a - spread);
+      doc.setFillColor(...color);
+      leafAt(doc, x, y, len, a + spread);
+    }
+    doc.setFillColor(...color);
+    leafAt(doc, P1[0], P1[1], size * k * 0.4, angle(1));
+  }
+
+  // A ring of leaves with an opening at the bottom.
+  function wreath(doc, cx, cy, r, count, len, color, color2) {
+    for (let i = 0; i < count; i++) {
+      if (i > count * 0.78 && i < count * 0.97) continue;
+      const a = (i / count) * Math.PI * 2 + Math.PI / 2;
+      const deg = (a * 180) / Math.PI + 90 + (i % 2 ? 28 : -28);
+      doc.setFillColor(...(i % 3 ? color : color2));
+      leafAt(doc, cx + r * Math.cos(a), cy + r * Math.sin(a), len, deg);
+    }
+  }
+
+  // A three-tier pine of height h standing on `base`. Without a trunk, the
+  // lowest tier sits on `base`.
+  function pine(doc, x, base, h, color, trunk = true) {
+    doc.setFillColor(...color);
+    if (trunk) doc.rect(x - h * 0.025, base - h * 0.12, h * 0.05, h * 0.12, "F");
+    else base += h * 0.12;
+    const w = h * 0.42;
+    for (let k = 0; k < 3; k++) {
+      const top = base - h + k * h * 0.22;
+      const bot = base - h * 0.12 - (2 - k) * h * 0.12;
+      const ww = w * (0.55 + k * 0.22);
+      doc.triangle(x, top, x - ww, bot, x + ww, bot, "F");
+    }
+  }
+
+  // Two rows of pines along the bottom of the card.
+  function treeline(doc, x, y, w, h, band, front, back) {
+    const k = band / 120;
+    const base = y + h;
+    const row = (seed, step, jitter, minH, varH, color, sink) => {
+      const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+      let tx = x;
+      for (;;) {
+        const th = (minH + rnd() * varH) * k;
+        const half = th * 0.42 * 0.99;
+        if (tx < x + half) tx = x + half;
+        if (tx + half > x + w) break;
+        pine(doc, tx, base - sink * k, th, color, false);
+        tx += (step + rnd() * jitter) * k;
+      }
+    };
+    row(7, 15, 12, 55, 40, back, 6);
+    row(3, 20, 18, 40, 55, front, 0);
+    doc.setFillColor(...front);
+    doc.rect(x, base - 4 * k, w, 4 * k, "F");
+  }
+
+  // A cross-section of a log: heartwood disc and growth rings.
+  function treeRings(doc, cx, cy, r, ink, wood) {
+    const radii = [44, 39, 33.5, 29, 24, 19.5, 15, 10.5, 6];
+    radii.forEach((q, i) => {
+      const rr = (q / 44) * r;
+      const ox = ((i % 3) - 1) * r * 0.012, oy = (((i + 1) % 3) - 1) * r * 0.012;
+      doc.setDrawColor(...ink);
+      doc.setLineWidth(r * (i === 0 ? 0.05 : i % 2 ? 0.016 : 0.025));
+      if (i === 0) {
+        doc.setFillColor(...wood);
+        doc.circle(cx, cy, rr, "FD");
+      } else {
+        doc.circle(cx + ox, cy + oy, rr, "S");
+      }
+    });
+    doc.setLineWidth(r * 0.018);
+    doc.line(cx, cy, cx + r * 0.27, cy - r * 0.64);
+  }
+
+  // Each style sets the colors, the spacing (in units of 1/100 of the card
+  // width, see drawCard) and the decorations. `fonts` are the fonts the
+  // style suggests; picking the style selects them, and they can be changed.
+  const STYLES = {
+    evergreen: {
+      label: "Evergreen", fonts: { titleFont: "greatvibes", clueFont: "cormorant" },
+      ink: [35, 64, 47], soft: [35, 64, 47], line: [112, 134, 120], muted: [138, 111, 62],
+      padTop: 7, padBottom: 6, padX: 8, above: 0, titleSize: 12, dividerSize: 4.5,
+      rulesW: 74, gridMax: 80,
+      card(doc, x, y, w, h, u) {
+        const ink = this.ink;
+        doc.setDrawColor(...ink);
+        doc.setLineWidth(0.35 * u);
+        doc.rect(x + 3 * u, y + 3 * u, w - 6 * u, h - 6 * u, "S");
+        doc.setLineWidth(0.12 * u);
+        doc.rect(x + 4.1 * u, y + 4.1 * u, w - 8.2 * u, h - 8.2 * u, "S");
+        // Fern sprigs in the top corners, drawn in a 100 × 100 frame.
+        const k = (20 * u) / 100;
+        const green2 = [47, 90, 65];
+        for (const flip of [1, -1]) {
+          const ox = flip === 1 ? x + 4.6 * u : x + w - 4.6 * u, oy = y + 4.6 * u;
+          const map = (px, py) => [ox + flip * px * k, oy + py * k];
+          branch(doc, map, k, [4, 4], [10, 55], [70, 92], 7, 15, 52, ink, null);
+          branch(doc, map, k, [4, 4], [50, 12], [92, 48], 6, 12, 50, green2, null);
+        }
+      },
+      divider(doc, cx, cy, u) {
+        doc.setDrawColor(...this.muted);
+        doc.setLineWidth(0.15 * u);
+        doc.line(cx - 15 * u, cy, cx - 3.5 * u, cy);
+        doc.line(cx + 3.5 * u, cy, cx + 15 * u, cy);
+        doc.setFillColor(...this.ink);
+        leafAt(doc, cx, cy, 2.8 * u, -150);
+        leafAt(doc, cx, cy, 2.8 * u, -30);
+      },
+      free(doc, cx, cy, cell) {
+        wreath(doc, cx, cy, cell * 0.36, 26, cell * 0.12, this.ink, this.muted);
+        return { w: cell * 0.5, h: cell * 0.36 };
+      },
+    },
+
+    fern: {
+      label: "Fern & Moss", fonts: { titleFont: "pinyon", clueFont: "lora" },
+      ink: [58, 70, 54], soft: [58, 70, 54], line: [169, 184, 154], muted: [107, 127, 90],
+      tile: [232, 236, 223], moss: [107, 127, 90], sage: [169, 184, 154], paper: [255, 255, 255],
+      padTop: 4, padBottom: 4, padX: 7, above: 6, titleSize: 11.5,
+      rulesW: 82, rulesPadX: 4, rulesPadY: 2.8, heading: true, gridMax: 82, tiles: true,
+      aboveTitle(doc, cx, top, u) {
+        // Two leafy branches arching out from above the title, in a 300 × 50 frame.
+        const k = (84 * u) / 300;
+        const map = (px, py) => [cx + (px - 150) * k, top + py * k];
+        branch(doc, map, k, [150, 4], [80, -2], [8, 40], 9, 16, 46, this.moss, this.sage);
+        branch(doc, map, k, [150, 4], [220, -2], [292, 40], 9, 16, 46, this.moss, this.sage);
+      },
+      rulesFrame(doc, r, u, headingW) {
+        doc.setDrawColor(...this.sage);
+        doc.setLineWidth(0.2 * u);
+        doc.roundedRect(r.x, r.y, r.w, r.h, 2.2 * u, 2.2 * u, "S");
+        if (headingW) {
+          doc.setFillColor(...this.paper);
+          doc.rect(r.x + r.w / 2 - headingW / 2 - 2 * u, r.y - 0.5 * u, headingW + 4 * u, 1 * u, "F");
+        }
+      },
+      free(doc, cx, cy, cell, rect) {
+        doc.setFillColor(...this.moss);
+        doc.roundedRect(rect.x, rect.y, rect.w, rect.h, rect.r, rect.r, "F");
+        doc.setTextColor(...[245, 246, 239]);
+        return { w: rect.w * 0.84, h: rect.h * 0.7 };
+      },
+    },
+
+    timber: {
+      label: "Timber", fonts: { titleFont: "playfair", clueFont: "ebgaramond" },
+      ink: [59, 42, 30], soft: [59, 42, 30], line: [59, 42, 30], muted: [91, 107, 58],
+      kraft: [233, 220, 195], wood: [201, 169, 122], back: [111, 90, 64],
+      padTop: 6, padBottom: 13, padX: 9, above: 0, titleSize: 9, caps: true,
+      rulesW: 82, rulesPadY: 1.8, headingCol: 14, heading: true, gridMax: 76, outer: 0.0065,
+      card(doc, x, y, w, h, u, outer) {
+        if (this.fill) {
+          doc.setFillColor(...this.kraft);
+          doc.rect(outer.x, outer.y, outer.w, outer.h, "F");
+        }
+        treeline(doc, x, y, w, h, 11 * u, this.ink, this.back);
+      },
+      rulesFrame(doc, r, u) {
+        doc.setDrawColor(...this.ink);
+        doc.setLineWidth(0.2 * u);
+        doc.line(r.x, r.y, r.x + r.w, r.y);
+        doc.line(r.x, r.y + r.h, r.x + r.w, r.y + r.h);
+        if (r.headingX) {
+          doc.setLineWidth(0.15 * u);
+          doc.line(r.headingX, r.y + 1.2 * u, r.headingX, r.y + r.h - 1.2 * u);
+        }
+      },
+      free(doc, cx, cy, cell) {
+        treeRings(doc, cx, cy, cell * 0.42, this.ink, this.wood);
+        return { w: cell * 0.56, h: cell * 0.2, plaque: true };
+      },
+    },
+
+    clearing: {
+      label: "Clearing", fonts: { titleFont: "cormorant", clueFont: "cormorant" },
+      ink: [42, 58, 48], soft: [47, 93, 70], line: [47, 93, 70], muted: [122, 138, 128],
+      padTop: 4, padBottom: 4, padX: 6, above: 8.5, titleSize: 10.5,
+      rulesW: 74, gridMax: 82, outer: 0,
+      aboveTitle(doc, cx, top, u) {
+        const k = (12 * u) / 60;
+        const base = top + 7 * u;
+        pine(doc, cx - 12 * k, base, 24 * k, this.soft);
+        pine(doc, cx, base, 34 * k, this.ink);
+        pine(doc, cx + 12 * k, base, 24 * k, this.soft);
+      },
+      free() { return null; },
+    },
+
+    plain: {
+      label: "Plain", fonts: null,
+      ink: [20, 20, 20], soft: [60, 60, 60], line: [20, 20, 20], muted: [110, 110, 110],
+      padTop: 0, padBottom: 0, padX: 0, above: 0, titleSize: 12,
+      rulesW: 100, gridMax: 100,
+      free(doc, cx, cy, cell, rect) {
+        doc.setFillColor(228, 234, 250);
+        doc.rect(rect.x, rect.y, rect.w, rect.h, "F");
+        return null;
+      },
+    },
+  };
+  STYLES.timberKraft = Object.assign(Object.create(STYLES.timber), { label: "Timber with kraft background", fill: true });
+
+  // Draws a title on one line in spaced capitals, as large as fits.
+  function drawCapsTitle(doc, text, cx, cy, w, h) {
+    const t = text.toUpperCase();
+    let size = h * 0.85, cs;
+    for (; size > 6; size -= 0.5) {
+      doc.setFontSize(size);
+      cs = size * 0.16;
+      if (doc.getTextWidth(t) + cs * (t.length - 1) <= w) break;
+    }
+    doc.setFontSize(size);
+    cs = size * 0.16;
+    const tw = doc.getTextWidth(t) + cs * (t.length - 1);
+    doc.text(t, cx - tw / 2, cy + size * 0.33, { charSpace: cs });
+  }
+
   // `label` is the footer text (or ""); `place` marks the card's position in a
-  // composite picture as { cols, rows, c, r }, drawn as a small map.
-  function drawCard(doc, fonts, card, s, label, place, x, y, w, h) {
+  // composite picture as { cols, rows, c, r }, drawn as a small map. `outer`
+  // is the card's full area, including any bleed, for background fills.
+  function drawCard(doc, fonts, card, s, label, place, x, y, w, h, outer) {
+    const st = STYLES[s.style] || STYLES.evergreen;
     const n = s.size;
-    const titleH = s.title ? Math.min(h * 0.12, 64) : 0;
-    const footerH = label ? Math.min(h * (place ? 0.05 : 0.04), place ? 22 : 18) : 0;
-    const gap = Math.min(h * 0.02, 10);
+    // Spacing unit: 1/100 of the card width, or less on short cards.
+    const u = Math.min(w / 100, h / 120);
+    const gap = Math.min(2.2 * u, 10);
+    const padT = st.padTop * u, padB = st.padBottom * u, padX = st.padX * u;
+    const innerW = w - 2 * padX;
+    const cx = x + w / 2;
+    const aboveH = s.title ? st.above * u : 0;
+    const titleH = s.title ? Math.min(st.titleSize * u, 64) : 0;
+    const dividerH = s.title && st.dividerSize ? st.dividerSize * u : 0;
+    const footerH = label ? Math.min(h * 0.05, 22) : 0;
 
     // The game explanation sits between the title and the grid.
     let rules = null;
     if (s.rules.length) {
-      const rw = Math.min(w, h * 0.68);
+      const bw = Math.min(innerW, st.rulesW * u);
+      const px = (st.rulesPadX || 0) * u, py = (st.rulesPadY || 0) * u;
+      const heading = st.heading && s.rulesHeading ? s.rulesHeading : "";
+      const headCol = heading && st.headingCol ? st.headingCol * u : 0;
+      const textW = bw - 2 * px - headCol - (headCol ? 2.5 * u : 0);
       doc.setFont(fonts.clue, "normal");
-      const fit = fitBlock(doc, s.rules, rw, h * 0.15, Math.max(6, Math.min(h * 0.018, 13)), 5);
-      rules = { fit, h: fit.lines.length * fit.lineH };
+      const fit = fitBlock(doc, s.rules, textW, h * 0.15, Math.max(6, Math.min(2.5 * u, 13)), 5);
+      const textH = fit.lines.length * fit.lineH;
+      let headFit = null;
+      if (heading && headCol) {
+        doc.setFont(fonts.clue, "bold");
+        headFit = fitBlock(doc, [heading.toUpperCase()], headCol, Math.max(textH, 3 * u), Math.min(1.8 * u, fit.size), 4);
+      }
+      const bodyH = Math.max(textH, headFit ? headFit.lines.length * headFit.lineH : 0);
+      rules = { w: bw, px, py, heading, headCol, textW, fit, headFit, textH, bodyH, h: bodyH + 2 * py };
     }
-    const rulesH = rules ? rules.h + gap : 0;
+    const rulesH = rules ? rules.h + gap + (rules.heading && !rules.headCol ? 1 * u : 0) : 0;
 
-    const avail = h - titleH - rulesH - footerH - (s.title ? gap : 0) - (label ? gap : 0);
-    const side = Math.min(w, avail);
-    const gx = x + (w - side) / 2;
-    const blockH = titleH + (s.title ? gap : 0) + rulesH + side + (label ? gap + footerH : 0);
-    const top = y + (h - blockH) / 2;
-    const gy = top + titleH + (s.title ? gap : 0) + rulesH;
-    const cell = side / n;
+    const fixed = aboveH + titleH + (s.title ? gap : 0) + dividerH + rulesH + (label ? gap + footerH : 0);
+    const side = Math.max(0, Math.min(innerW, st.gridMax * u, h - padT - padB - fixed));
+    const blockH = fixed + side;
+    let cursor = y + padT + (h - padT - padB - blockH) / 2;
 
-    doc.setTextColor(20, 20, 20);
+    if (st.card) st.card(doc, x, y, w, h, u, outer || { x, y, w, h });
 
     if (s.title) {
+      if (st.aboveTitle) st.aboveTitle(doc, cx, cursor, u);
+      cursor += aboveH;
+      doc.setTextColor(...st.ink);
       doc.setFont(fonts.title, "bold");
-      drawCentered(doc, s.title, x + w / 2, top + titleH / 2, w, titleH, titleH * 0.85, 8);
+      if (st.caps) drawCapsTitle(doc, s.title, cx, cursor + titleH / 2, innerW, titleH);
+      else drawCentered(doc, s.title, cx, cursor + titleH / 2, innerW, titleH, titleH * 0.85, 8);
+      cursor += titleH + gap;
+      if (dividerH) {
+        st.divider(doc, cx, cursor + dividerH / 2 - gap / 2, u);
+        cursor += dividerH;
+      }
     }
 
     if (rules) {
+      if (rules.heading && !rules.headCol) cursor += 1 * u;
+      const r = { x: cx - rules.w / 2, y: cursor, w: rules.w, h: rules.h };
+      const textX = r.x + rules.px + (rules.headCol ? rules.headCol + 2.5 * u : 0);
+      if (rules.headCol) r.headingX = r.x + rules.headCol + 1.25 * u;
+      let headingW = 0;
+      if (rules.heading && !rules.headCol) {
+        doc.setFont(fonts.clue, "bold");
+        doc.setFontSize(Math.max(5, Math.min(1.7 * u, 9)));
+        headingW = doc.getTextWidth(rules.heading.toUpperCase()) + 0.25 * u * rules.heading.length;
+      }
+      if (st.rulesFrame) st.rulesFrame(doc, r, u, headingW);
+      doc.setTextColor(...st.soft);
       doc.setFont(fonts.clue, "normal");
-      doc.setTextColor(60, 60, 60);
-      drawBlock(doc, rules.fit, x + w / 2, gy - rulesH, "center");
-      doc.setTextColor(20, 20, 20);
+      const textTop = r.y + rules.py + (rules.bodyH - rules.textH) / 2;
+      if (rules.headCol) drawBlock(doc, rules.fit, textX, textTop, "left");
+      else drawBlock(doc, rules.fit, cx, textTop, "center");
+      if (rules.heading) {
+        doc.setFont(fonts.clue, "bold");
+        doc.setTextColor(...st.muted);
+        if (rules.headCol) {
+          const hf = rules.headFit;
+          const hTop = r.y + rules.py + (rules.bodyH - hf.lines.length * hf.lineH) / 2;
+          drawBlock(doc, hf, r.x, hTop, "left");
+        } else {
+          const size = Math.max(5, Math.min(1.7 * u, 9));
+          doc.setFontSize(size);
+          const t = rules.heading.toUpperCase();
+          const cs = 0.25 * u;
+          const tw = doc.getTextWidth(t) + cs * (t.length - 1);
+          doc.text(t, cx - tw / 2, r.y + size * 0.33, { charSpace: cs });
+        }
+      }
+      cursor += rules.h + gap;
     }
 
-    // Free-space shading, then grid lines.
-    card.forEach((c, i) => {
-      if (!c.free) return;
-      doc.setFillColor(228, 234, 250);
-      doc.rect(gx + (i % n) * cell, gy + Math.floor(i / n) * cell, cell, cell, "F");
-    });
-
-    doc.setDrawColor(20, 20, 20);
-    doc.setLineWidth(Math.max(0.5, side / 400));
-    for (let i = 1; i < n; i++) {
-      doc.line(gx + i * cell, gy, gx + i * cell, gy + side);
-      doc.line(gx, gy + i * cell, gx + side, gy + i * cell);
-    }
-    doc.setLineWidth(Math.max(1, side / 200));
-    doc.rect(gx, gy, side, side, "S");
-
-    const pad = cell * 0.08;
-    const maxFont = Math.min(cell * 0.22, 20);
-    card.forEach((c, i) => {
-      const cx = gx + (i % n) * cell + cell / 2;
-      const cy = gy + Math.floor(i / n) * cell + cell / 2;
-      doc.setFont(fonts.clue, "normal");
-      drawCentered(doc, c.text, cx, cy, cell - 2 * pad, cell - 2 * pad, c.free ? maxFont * 1.4 : maxFont, 4);
-    });
+    const gx = cx - side / 2, gy = cursor;
+    const cell = side / n;
+    drawGrid(doc, fonts, card, st, n, gx, gy, side, cell);
 
     if (label) {
       const fy = gy + side + gap;
       doc.setFont(fonts.clue, place ? "bold" : "normal");
-      doc.setTextColor(110, 110, 110);
+      doc.setTextColor(...st.muted);
       doc.setFontSize(Math.max(6, footerH * 0.6));
       doc.text(label, gx + side, fy + footerH * 0.7, { align: "right" });
       if (place) {
@@ -567,6 +863,70 @@
         }
       }
     }
+  }
+
+  function drawGrid(doc, fonts, card, st, n, gx, gy, side, cell) {
+    const tileGap = st.tiles ? cell * 0.055 : 0;
+    const radius = cell * 0.07;
+    const rectOf = (i) => ({
+      x: gx + (i % n) * cell + tileGap / 2, y: gy + Math.floor(i / n) * cell + tileGap / 2,
+      w: cell - tileGap, h: cell - tileGap, r: radius,
+    });
+
+    if (st.tiles) {
+      doc.setFillColor(...st.tile);
+      card.forEach((c, i) => {
+        if (c.free) return;
+        const r = rectOf(i);
+        doc.roundedRect(r.x, r.y, r.w, r.h, r.r, r.r, "F");
+      });
+    } else {
+      // Plain fills the free square before the lines go on top.
+      if (st === STYLES.plain) {
+        card.forEach((c, i) => { if (c.free) st.free(doc, 0, 0, cell, rectOf(i)); });
+      }
+      doc.setDrawColor(...st.line);
+      doc.setLineWidth(Math.max(0.5, side / 400));
+      for (let i = 1; i < n; i++) {
+        doc.line(gx + i * cell, gy, gx + i * cell, gy + side);
+        doc.line(gx, gy + i * cell, gx + side, gy + i * cell);
+      }
+      // `outer` is the border width as a share of the grid; 0 means none.
+      const outer = st.outer === undefined ? 0.005 : st.outer;
+      if (outer) {
+        doc.setDrawColor(...st.ink);
+        doc.setLineWidth(Math.max(1, side * outer));
+        doc.rect(gx, gy, side, side, "S");
+      }
+    }
+
+    const pad = cell * 0.08;
+    const maxFont = Math.min(cell * 0.22, 20);
+    card.forEach((c, i) => {
+      const cx = gx + (i % n) * cell + cell / 2;
+      const cy = gy + Math.floor(i / n) * cell + cell / 2;
+      doc.setFont(fonts.clue, "normal");
+      doc.setTextColor(...st.ink);
+      if (!c.free) {
+        drawCentered(doc, c.text, cx, cy, cell - 2 * pad - tileGap, cell - 2 * pad - tileGap, maxFont, 4);
+        return;
+      }
+      // The free square uses the clue font, a little larger.
+      let box = st === STYLES.plain ? null : st.free(doc, cx, cy, cell, rectOf(i));
+      if (st === STYLES.clearing) doc.setTextColor(...st.soft);
+      if (box && box.plaque) {
+        doc.setFont(fonts.clue, "normal");
+        const fit = fitText(doc, c.text, box.w, box.h, maxFont * 1.2, 4);
+        doc.setFontSize(fit.size);
+        const tw = Math.max(...fit.lines.map((l) => doc.getTextWidth(l)));
+        const ph = fit.lines.length * fit.lineH;
+        doc.setFillColor(...st.ink);
+        doc.rect(cx - tw / 2 - fit.size * 0.45, cy - ph / 2 - fit.size * 0.15, tw + fit.size * 0.9, ph + fit.size * 0.3, "F");
+        doc.setTextColor(...st.kraft);
+      }
+      if (!box) box = { w: cell - 2 * pad, h: cell - 2 * pad };
+      drawCentered(doc, c.text, cx, cy, box.w, box.h, maxFont * 1.2, 4);
+    });
   }
 
   // Crop marks in the page margins, one in line with every cut. None go
@@ -619,7 +979,9 @@
           place = { cols, rows, c: i % cols, r: Math.floor(i / cols) };
           label = `#${i + 1} · row ${place.r + 1}, col ${place.c + 1}`;
         }
-        drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset);
+        const bleed = hasBack ? BLEED : 0;
+        const outer = { x: slot.x - bleed, y: slot.y - bleed, w: w + 2 * bleed, h: h + 2 * bleed };
+        drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset, outer);
       });
       if (!hasBack) continue;
       drawCropMarks(doc, layout, layout.slots.slice(0, batch.length));
@@ -714,6 +1076,14 @@
   // ---------- wiring ----------
 
   populateFontSelects();
+  for (const key of ["evergreen", "fern", "timber", "timberKraft", "clearing", "plain"]) {
+    const st = STYLES[key];
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = st.label;
+    $("style").appendChild(opt);
+  }
+  $("style").value = "evergreen";
   loadForm();
   updateArrangeOptions();
   updateCount();
@@ -728,6 +1098,18 @@
     $(id).addEventListener("change", () => { showBack = true; });
   }
   window.addEventListener("resize", updateBackground);
+
+  // Picking a style also picks its suggested fonts; they can be changed after.
+  $("style").addEventListener("change", () => {
+    const f = (STYLES[$("style").value] || {}).fonts;
+    if (f) {
+      $("titleFont").value = f.titleFont;
+      $("clueFont").value = f.clueFont;
+    }
+    saveForm();
+    updateFontSamples();
+    scheduleRegenerate();
+  });
 
   $("form").addEventListener("submit", download);
   $("shuffleBtn").addEventListener("click", () => {
@@ -744,5 +1126,5 @@
   });
 
   // Exposed for testing.
-  window.BingoMaker = { readSettings, makeCards, buildPdf, FONTS, pageLayout, compositeGrid };
+  window.BingoMaker = { readSettings, makeCards, buildPdf, FONTS, STYLES, pageLayout, compositeGrid };
 })();
