@@ -14,7 +14,6 @@
   const SIZES = { small: [252, 144], medium: [270, 180], large: [504, 324] };
   const MIN_MARGIN = 24;
   const SPACING = 18;
-  const BORDER_DPI = 200;
   const INK = [42, 58, 48];
   const SOFT = [47, 93, 70];
   const CUT = [150, 150, 150];
@@ -87,35 +86,6 @@
     return { top: m.top, bottom: m.bottom, x: m.side };
   }
 
-  // The border painted at print resolution, upright and turned upside down.
-  const borderCache = {};
-  function borderImages(border, w, h) {
-    const key = `${border}-${w}x${h}`;
-    if (!borderCache[key]) {
-      const W = Math.round((w / 72) * BORDER_DPI), H = Math.round((h / 72) * BORDER_DPI);
-      const paint = (flip) => {
-        const canvas = document.createElement("canvas");
-        canvas.width = W;
-        canvas.height = H;
-        const ctx = canvas.getContext("2d");
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, W, H);
-        if (flip) {
-          ctx.translate(W, H);
-          ctx.rotate(Math.PI);
-        }
-        if (border === "floral") window.PnwArt.drawFloralFrame(ctx, W, H);
-        else window.PnwArt.drawBorder(ctx, W, H);
-        return canvas.toDataURL("image/jpeg", 0.92);
-      };
-      borderCache[key] = {
-        up: { data: paint(false), alias: `nc-${key}-up` },
-        down: { data: paint(true), alias: `nc-${key}-down` },
-      };
-    }
-    return borderCache[key];
-  }
-
   // ---------- text ----------
 
   function wrapWords(doc, text, w) {
@@ -168,9 +138,11 @@
       const [px, py] = toPage(fx, fy);
       doc.text(text, px, py, side ? { ...opts, angle: 180 } : opts);
     };
-    const imgs = borderImages(s.border, w, h);
-    const img = side ? imgs.down : imgs.up;
-    doc.addImage(img.data, "JPEG", x, side ? y : y + h, w, h, img.alias, "FAST");
+    // The border as vector art; the back half is the same art turned 180°.
+    window.PdfCanvas.placeArt(doc, `nc-${s.border}-${w}x${h}`, w, h, x, side ? y : y + h, !!side, (ctx) => {
+      if (s.border === "floral") window.PnwArt.drawFloralFrame(ctx, w, h);
+      else window.PnwArt.drawBorder(ctx, w, h);
+    });
 
     const ins = insets(s.border, w, h);
     const boxW = w - 2 * ins.x;
@@ -260,7 +232,7 @@
 
   async function buildPdf(s) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: "pt", format: s.paper, orientation: "portrait" });
+    const doc = new jsPDF({ unit: "pt", format: s.paper, orientation: "portrait", compress: true, floatPrecision: 2 });
     const fonts = { name: await useFont(doc, s.nameFont), detail: await useFont(doc, s.detailFont) };
     const layout = pageLayout(s);
     const per = layout.slots.length;
