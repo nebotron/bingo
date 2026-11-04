@@ -210,14 +210,15 @@
     return best;
   }
 
-  // Render part of the image to JPEG. The image is scaled to cover an area of
-  // coverW × coverH points (cropping the overflow evenly), and `region` is the
-  // part of that area to output, also in points.
-  function renderRegion(coverW, coverH, region) {
+  // Render part of the image to JPEG. The whole image is scaled to fit inside
+  // an area of fitW × fitH points (the trimmed cards), centred, so none of it
+  // is cut off; whatever it doesn't fill is white. `region` is the part to
+  // output, in points from the area's top-left (negative reaches into bleed).
+  function renderRegion(fitW, fitH, region) {
     const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-    const scale = Math.max(coverW / iw, coverH / ih); // points per source pixel
-    const ox = (iw * scale - coverW) / 2;
-    const oy = (ih * scale - coverH) / 2;
+    const scale = Math.min(fitW / iw, fitH / ih); // points per source pixel
+    const ox = (fitW - iw * scale) / 2;
+    const oy = (fitH - ih * scale) / 2;
     const pxPerPt = Math.min(MAX_DPI / 72, 1 / scale);
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(region.w * pxPerPt));
@@ -226,8 +227,8 @@
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bgImage,
-      (region.x + ox) / scale, (region.y + oy) / scale, region.w / scale, region.h / scale,
-      0, 0, canvas.width, canvas.height);
+      (ox - region.x) * pxPerPt, (oy - region.y) * pxPerPt,
+      iw * scale * pxPerPt, ih * scale * pxPerPt);
     return canvas.toDataURL("image/jpeg", 0.9);
   }
 
@@ -236,7 +237,7 @@
     const { w, h } = pageLayout(s);
     const bw = w + 2 * BLEED, bh = h + 2 * BLEED;
     if (s.bgMode === "simple") {
-      const data = renderRegion(bw, bh, { x: 0, y: 0, w: bw, h: bh });
+      const data = renderRegion(w, h, { x: -BLEED, y: -BLEED, w: bw, h: bh });
       return () => ({ data, alias: "back" });
     }
     const [cols, rows] = compositeGrid(s);
@@ -247,8 +248,8 @@
       if (!cache.has(t)) {
         const c = t % cols, r = Math.floor(t / cols);
         // Tiles overlap by the bleed, so the picture stays continuous across cuts.
-        const data = renderRegion(cols * w + 2 * BLEED, rows * h + 2 * BLEED,
-          { x: c * w, y: r * h, w: bw, h: bh });
+        const data = renderRegion(cols * w, rows * h,
+          { x: c * w - BLEED, y: r * h - BLEED, w: bw, h: bh });
         cache.set(t, { data, alias: `tile${t}` });
       }
       return cache.get(t);
@@ -301,7 +302,9 @@
     canvas.style.height = `${Math.round(H * k)}px`;
     const ctx = canvas.getContext("2d");
     const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-    const scale = Math.max(canvas.width / iw, canvas.height / ih);
+    const scale = Math.min(canvas.width / iw, canvas.height / ih);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bgImage, (canvas.width - iw * scale) / 2, (canvas.height - ih * scale) / 2, iw * scale, ih * scale);
     if (cols * rows > 1) {
       const cw = canvas.width / cols, ch = canvas.height / rows;
