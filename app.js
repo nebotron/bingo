@@ -164,8 +164,7 @@
         if (!(f in data)) continue;
         if (old && ["style", "titleFont", "clueFont"].includes(f)) continue;
         const el = $(f);
-        // The arrangement options are built later; remember the choice.
-        if (f === "arrange") el.dataset.want = data[f];
+        if (f === "arrange" && data[f] === "auto") continue; // older saves
         if (el.type === "checkbox") el.checked = !!data[f];
         else if (el.tagName !== "SELECT" || [...el.options].some((o) => o.value === data[f])) el.value = data[f];
       }
@@ -249,12 +248,26 @@
     return out;
   }
 
+  const MAX_GRID = 100;
+
+  // The grid the user typed, as [cols, rows]: "4x5", "4 × 5", "4 by 5"…
+  // Returns null when the field is blank (auto) and false when it can't be read.
+  function parseGrid(text) {
+    const t = (text || "").trim();
+    if (!t || /^auto$/i.test(t)) return null;
+    const m = t.match(/^(\d+)\s*(?:x|×|\*|by|,|\s)\s*(\d+)$/i);
+    if (!m) return false;
+    const c = parseInt(m[1], 10), r = parseInt(m[2], 10);
+    if (c < 1 || r < 1 || c > MAX_GRID || r > MAX_GRID) return false;
+    return [c, r];
+  }
+
   // The composite grid: the user's pick, or the one closest to the image's shape.
   function compositeGrid(s) {
+    const picked = parseGrid(s.arrange);
+    if (picked) return picked;
     const layout = pageLayout(s);
     const options = arrangements(s.count);
-    const picked = options.find(([c, r]) => `${c}x${r}` === s.arrange);
-    if (picked) return picked;
     const target = bgImage ? bgImage.naturalWidth / bgImage.naturalHeight : 1;
     let best = options[0], bestErr = Infinity;
     for (const [c, r] of options) {
@@ -296,28 +309,17 @@
     const [cols, rows] = compositeGrid(s);
     const cache = new Map();
     return (i) => {
-      if (!cache.has(i)) {
-        const c = i % cols, r = Math.floor(i / cols);
+      // With more cards than squares, the picture repeats: card i takes square i mod n.
+      const t = i % (cols * rows);
+      if (!cache.has(t)) {
+        const c = t % cols, r = Math.floor(t / cols);
         // Tiles overlap by the bleed, so the picture stays continuous across cuts.
         const data = renderRegion(cols * w + 2 * BLEED, rows * h + 2 * BLEED,
           { x: c * w, y: r * h, w: bw, h: bh });
-        cache.set(i, { data, alias: `tile${i}` });
+        cache.set(t, { data, alias: `tile${t}` });
       }
-      return cache.get(i);
+      return cache.get(t);
     };
-  }
-
-  function updateArrangeOptions() {
-    const sel = $("arrange");
-    const want = sel.dataset.want || sel.value;
-    delete sel.dataset.want;
-    const count = readSettings().count;
-    sel.innerHTML = "";
-    sel.add(new Option("Auto (best fit)", "auto"));
-    for (const [c, r] of arrangements(count)) {
-      sel.add(new Option(`${c} across × ${r} down`, `${c}x${r}`));
-    }
-    sel.value = [...sel.options].some((o) => o.value === want) ? want : "auto";
   }
 
   function updateBackground() {
@@ -334,12 +336,22 @@
     const [cols, rows] = s.bgMode === "composite" ? compositeGrid(s) : [1, 1];
     const fmt = (pt) => `${(pt / 72).toFixed(2)}″`;
     const cut = `Cut each card to ${fmt(layout.w)} × ${fmt(layout.h)} along the crop marks.`;
-    hint.textContent = s.bgMode === "composite"
-      ? `The ${s.count} cards form a picture ${cols} cards across and ${rows} down. ${cut} ` +
-        "Lay the cards out front side up in number order (left to right, then top to bottom), " +
-        "then turn each one over where it lies."
-      : `${cut} Print double-sided and ${s.flip === "short" ? "flip on the short edge" : "flip on the long edge"}.`;
-    if (s.bgMode === "composite" && (cols === 1 || rows === 1) && s.count > 3) {
+    const squares = cols * rows;
+    if (s.bgMode === "composite") {
+      let text = `The picture is ${cols} cards across and ${rows} down (${squares} square${squares === 1 ? "" : "s"}). `;
+      if (s.count > squares) {
+        const sets = Math.floor(s.count / squares), extra = s.count % squares;
+        text += `With ${s.count} cards the picture repeats every ${squares} card${squares === 1 ? "" : "s"}: ` +
+          `${sets} full picture${sets === 1 ? "" : "s"}${extra ? ` plus ${extra} extra card${extra === 1 ? "" : "s"}` : ""}. `;
+      } else if (s.count < squares) {
+        text += `With only ${s.count} card${s.count === 1 ? "" : "s"}, ${squares - s.count} square${squares - s.count === 1 ? " is" : "s are"} left empty. `;
+      }
+      hint.textContent = text + cut + " Lay the cards out front side up in number order (left to right, then top to bottom), " +
+        "then turn each one over where it lies.";
+    } else {
+      hint.textContent = `${cut} Print double-sided and ${s.flip === "short" ? "flip on the short edge" : "flip on the long edge"}.`;
+    }
+    if (s.bgMode === "composite" && !parseGrid(s.arrange) && (cols === 1 || rows === 1) && s.count > 3) {
       hint.textContent += ` Tip: ${s.count} cards only make a single strip; a count like ` +
         `${Math.max(4, Math.round(Math.sqrt(s.count)) ** 2)} gives a fuller grid.`;
     }
@@ -375,8 +387,12 @@
       ctx.fillStyle = "#fff";
       for (let i = 0; i < cols * rows; i++) {
         const x = (i % cols + 0.5) * cw, y = (Math.floor(i / cols) + 0.5) * ch;
-        ctx.strokeText(String(i + 1), x, y);
-        ctx.fillText(String(i + 1), x, y);
+        const nums = [];
+        for (let n = i; n < s.count; n += cols * rows) nums.push(n + 1);
+        const text = nums.length === 0 ? "–" : nums.length <= 2 ? nums.join(", ") : `${nums[0]} (×${nums.length})`;
+        ctx.font = `700 ${Math.min(fs, (cw * 0.9) / (text.length * 0.6))}px system-ui, sans-serif`;
+        ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y);
       }
     }
   }
@@ -412,6 +428,9 @@
       return `A ${s.size}×${s.size} card needs ${need} unique clues; you have ${s.clues.length}.`;
     }
     if (s.bgMode !== "none" && !bgImage) return "Choose an image for the card backs.";
+    if (s.bgMode === "composite" && parseGrid(s.arrange) === false) {
+      return `Enter the picture grid as columns × rows, like 4x5 (up to ${MAX_GRID} each), or leave it blank for auto.`;
+    }
     return "";
   }
 
@@ -1025,8 +1044,10 @@
         let place = null;
         if (grid) {
           const [cols, rows] = grid;
-          place = { cols, rows, c: i % cols, r: Math.floor(i / cols) };
-          label = `#${i + 1} · row ${place.r + 1}, col ${place.c + 1}`;
+          const t = i % (cols * rows);
+          place = { cols, rows, c: t % cols, r: Math.floor(t / cols) };
+          const copy = s.count > cols * rows ? ` · picture ${Math.floor(i / (cols * rows)) + 1}` : "";
+          label = `#${i + 1}${copy} · row ${place.r + 1}, col ${place.c + 1}`;
         }
         const bleed = hasBack ? BLEED : 0;
         const outer = { x: slot.x - bleed, y: slot.y - bleed, w: w + 2 * bleed, h: h + 2 * bleed };
@@ -1134,14 +1155,14 @@
   }
   $("style").value = "northwest";
   loadForm();
-  updateArrangeOptions();
   updateCount();
   updateFontSamples();
   updateBackground();
   regenerate();
 
   $("bgFile").addEventListener("change", (e) => loadImage(e.target.files[0]));
-  $("count").addEventListener("input", () => { updateArrangeOptions(); updateBackground(); });
+  $("count").addEventListener("input", updateBackground);
+  $("arrange").addEventListener("input", updateBackground);
   $("form").addEventListener("change", updateBackground);
   for (const id of ["bgMode", "arrange", "flip"]) {
     $(id).addEventListener("change", () => { showBack = true; });
@@ -1175,5 +1196,5 @@
   });
 
   // Exposed for testing.
-  window.BingoMaker = { readSettings, makeCards, buildPdf, FONTS, STYLES, pageLayout, compositeGrid };
+  window.BingoMaker = { readSettings, makeCards, buildPdf, FONTS, STYLES, pageLayout, compositeGrid, parseGrid };
 })();

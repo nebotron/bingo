@@ -24,7 +24,7 @@ Each card draws a random selection of your clues in a random order. Duplicate cl
 Optionally, pick an image to print on the back of the cards:
 
 - **Simple**: the same image goes on the back of every card.
-- **Composite**: the image is sliced so that the card backs, laid side by side, form one large picture. Choose how many cards across and down, or let the app pick the grid that best fits the image. Each card's front shows its number, its row and column, and a small map of where it goes.
+- **Composite**: the image is sliced so that the card backs, laid side by side, form one large picture. Type the grid size (columns × rows, like `4x5`), or leave it blank to let the app pick the grid that best fits the image. If there are more cards than grid squares, the picture repeats: cards 1 to N make one complete picture, the next N another, and so on. Each card's front shows its number, its row and column, and a small map of where it goes.
 
 With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The back images extend 1/8" past the cut lines so small printer misalignments don't leave white edges. For a composite, lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
