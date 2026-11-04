@@ -1229,6 +1229,10 @@
   }
 
   function drawFloralFrame(ctx, W, H) {
+    drawFitted(ctx, `floral:${W}x${H}`, W, H, metrics(W, H).s, (c) => floralFrame(c, W, H));
+  }
+
+  function floralFrame(ctx, W, H) {
     const m = floralMetrics(W, H);
     const { s } = m;
     const inset = m.band * 0.48, rad = 40 * s, step = 3 * s;
@@ -1264,11 +1268,92 @@
     ctx.restore();
   }
 
+  // ---------- keeping the art on the card ----------
+
+  // A stand-in for the canvas context that draws nothing and records how far
+  // the paint reaches. Curves count their control points, which bound them.
+  function boundsCtx() {
+    let M = [1, 0, 0, 1, 0, 0];
+    let st = { lw: 1 };
+    const stack = [];
+    let pts = [];
+    const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    const T = (x, y) => [M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5]];
+    const mul = (n) => {
+      const a = M;
+      M = [a[0] * n[0] + a[2] * n[1], a[1] * n[0] + a[3] * n[1], a[0] * n[2] + a[2] * n[3],
+        a[1] * n[2] + a[3] * n[3], a[0] * n[4] + a[2] * n[5] + a[4], a[1] * n[4] + a[3] * n[5] + a[5]];
+    };
+    const add = (x, y) => pts.push(T(x, y));
+    const paint = (pad) => {
+      for (const [x, y] of pts) {
+        b.x0 = Math.min(b.x0, x - pad); b.x1 = Math.max(b.x1, x + pad);
+        b.y0 = Math.min(b.y0, y - pad); b.y1 = Math.max(b.y1, y + pad);
+      }
+    };
+    const arc = (cx, cy, rx, ry, rot, a0, a1, ccw) => {
+      let sweep = a1 - a0;
+      if (!ccw && sweep < 0) sweep = sweep % (2 * Math.PI) + 2 * Math.PI;
+      if (ccw && sweep > 0) sweep = sweep % (2 * Math.PI) - 2 * Math.PI;
+      if (Math.abs(sweep) >= 2 * Math.PI) sweep = ccw ? -2 * Math.PI : 2 * Math.PI;
+      const cr = Math.cos(rot), sr = Math.sin(rot);
+      for (let i = 0; i <= 48; i++) {
+        const a = a0 + (sweep * i) / 48, x = rx * Math.cos(a), y = ry * Math.sin(a);
+        add(cx + x * cr - y * sr, cy + x * sr + y * cr);
+      }
+    };
+    const ctx = {
+      bounds: b,
+      save() { stack.push({ M: M.slice(), st: { ...st } }); },
+      restore() { const o = stack.pop(); if (o) { M = o.M; st = o.st; } },
+      translate(x, y) { mul([1, 0, 0, 1, x, y]); },
+      rotate(a) { const c = Math.cos(a), s = Math.sin(a); mul([c, s, -s, c, 0, 0]); },
+      scale(x, y) { mul([x, 0, 0, y, 0, 0]); },
+      transform(a, b2, c, d, e, f) { mul([a, b2, c, d, e, f]); },
+      beginPath() { pts = []; },
+      closePath() {},
+      moveTo: add,
+      lineTo: add,
+      bezierCurveTo(x1, y1, x2, y2, x, y) { add(x1, y1); add(x2, y2); add(x, y); },
+      quadraticCurveTo(qx, qy, x, y) { add(qx, qy); add(x, y); },
+      arc(cx, cy, r, a0, a1, ccw) { arc(cx, cy, r, r, 0, a0, a1, ccw); },
+      ellipse: arc,
+      fill() { paint(0); },
+      stroke() { paint((st.lw / 2) * Math.sqrt(Math.abs(M[0] * M[3] - M[1] * M[2]))); },
+      clip() {},
+      fillStyle: "", strokeStyle: "", lineCap: "butt", lineJoin: "miter", globalAlpha: 1,
+    };
+    Object.defineProperty(ctx, "lineWidth", { get: () => st.lw, set: (v) => { st.lw = v; } });
+    return ctx;
+  }
+
+  // Leaves and fronds along the edges reach past the card. Measure the art,
+  // then squeeze it just enough to stay `gap` inside every edge, so nothing
+  // is clipped at the card's edge or lost to an imprecise cut.
+  const fits = {};
+  function drawFitted(ctx, key, W, H, s, paint) {
+    if (!fits[key]) {
+      const bc = boundsCtx();
+      paint(bc);
+      const { x0, y0, x1, y1 } = bc.bounds, gap = 4 * s;
+      const fx = Math.min(1, (W - 2 * gap) / (x1 - x0)), fy = Math.min(1, (H - 2 * gap) / (y1 - y0));
+      // Where the art already fits on an axis, only shift it back in.
+      const ox = fx < 1 ? gap - x0 * fx : Math.min(Math.max(0, gap - x0), W - gap - x1);
+      const oy = fy < 1 ? gap - y0 * fy : Math.min(Math.max(0, gap - y0), H - gap - y1);
+      fits[key] = [fx, fy, ox, oy];
+    }
+    const [fx, fy, ox, oy] = fits[key];
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.scale(fx, fy);
+    paint(ctx);
+    ctx.restore();
+  }
+
   function drawBorder(ctx, W, H, layout) {
     const m = metrics(W, H);
-    ctx.save();
-    (LAYOUTS[layout || window.PnwArt.layout] || layoutVine)(ctx, W, H, m);
-    ctx.restore();
+    const fn = LAYOUTS[layout || window.PnwArt.layout] || layoutVine;
+    drawFitted(ctx, `${fn.name}:${W}x${H}`, W, H, m.s, (c) => fn(c, W, H, m));
   }
 
   window.PnwArt = {
