@@ -6,7 +6,7 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 2. Set the free-space text, or turn the free space off.
 3. The cards have one design: an illustrated border of Pacific Northwest plants and animals (thimbleberry, sword ferns, mushrooms, a song sparrow and a cedar waxwing) around an open green grid. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card.
 4. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
-5. Choose the grid size, number of cards and paper size. Cards always print four to a page, in a 2 × 2 layout.
+5. Choose the grid size, number of cards and paper size. Cards always print four to a page, in a 2 × 2 block with no gaps between them, so six straight cuts along the crop marks separate them: the four outer edges, then once down and once across the middle.
 6. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
 
 Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares. Lines only break between words, never inside one.
@@ -17,7 +17,7 @@ Optionally, pick an image to print on the back of the cards. With no image, the 
 
 The image is sliced so that the card backs, laid side by side, form one large picture. Type the grid size (columns × rows, like `4x5`), or leave it blank to let the app pick the grid that best fits the image. If there are more cards than grid squares, the picture repeats: cards 1 to N make one complete picture, the next N another, and so on (a `1x1` grid puts the whole image on every card). Each card's front shows its number, its row and column, and a small map of where it goes.
 
-With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The whole image is always printed: it is scaled to fit inside the cut cards (the full grid of cards) and never cropped, so if its shape differs from the cards the leftover space is white. Where the image reaches a cut line it extends 1/8" past it, so small printer misalignments don't leave white edges. Lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
+With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut along the crop marks. The whole image is always printed: it is scaled to fit inside the cut cards (the full grid of cards) and never cropped, so if its shape differs from the cards the leftover space is white. Along the outer edges of each sheet the image extends 1/8" past the cut line, so small printer misalignments don't leave white edges there. Lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
 ## Name cards
 

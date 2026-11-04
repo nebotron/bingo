@@ -7,12 +7,12 @@
   const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
     "size", "count", "paper", "arrange", "flip"];
 
-  // Page geometry, in points. Cards are cut at their slot edges, so when a
-  // back image is used the slot is the trim box.
+  // Page geometry, in points. The four cards touch, with no gap between
+  // them, so the sheet comes apart in six straight cuts: one along each outer
+  // edge of the block, then one down and one across the middle.
   const PAPER = { letter: [612, 792], a4: [595.28, 841.89] };
   const MARGIN = 36;
-  const SPACING = 24;
-  const BLEED = 9;        // 1/8": back image runs past the trim line
+  const BLEED = 9;        // 1/8": back image runs past the outer trim lines
   const SAFE = 14;        // keeps front content clear of the trim line
   const MAX_DPI = 250;
   const CARDS_PER_PAGE = 4; // always a 2 × 2 sheet
@@ -157,12 +157,12 @@
   function pageLayout(s) {
     const [pw, ph] = PAPER[s.paper];
     const [cols, rows] = { 1: [1, 1], 2: [1, 2], 4: [2, 2] }[s.perPage];
-    const w = (pw - 2 * MARGIN - (cols - 1) * SPACING) / cols;
-    const h = (ph - 2 * MARGIN - (rows - 1) * SPACING) / rows;
+    const w = (pw - 2 * MARGIN) / cols;
+    const h = (ph - 2 * MARGIN) / rows;
     const slots = [];
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        slots.push({ x: MARGIN + c * (w + SPACING), y: MARGIN + r * (h + SPACING) });
+        slots.push({ x: MARGIN + c * w, y: MARGIN + r * h });
       }
     }
     return { pw, ph, w, h, slots };
@@ -233,23 +233,36 @@
     return canvas.toDataURL("image/jpeg", 0.9);
   }
 
-  // Returns a function giving the back image (including bleed) for card i.
+  // How far a back at `pos` on the reverse page runs past each of its edges.
+  // Only the outer edges of the block bleed; inside it the backs meet exactly
+  // at the shared cut, since neighbouring cards hold other parts of the picture.
+  function backBleed(layout, pos) {
+    const eps = 0.5;
+    return {
+      l: pos.x <= MARGIN + eps ? BLEED : 0,
+      t: pos.y <= MARGIN + eps ? BLEED : 0,
+      r: pos.x + layout.w >= layout.pw - MARGIN - eps ? BLEED : 0,
+      b: pos.y + layout.h >= layout.ph - MARGIN - eps ? BLEED : 0,
+    };
+  }
+
+  // Returns a function giving the back image for card i, with the given bleed.
   function backImages(s) {
     const { w, h } = pageLayout(s);
-    const bw = w + 2 * BLEED, bh = h + 2 * BLEED;
     const [cols, rows] = compositeGrid(s);
     const cache = new Map();
-    return (i) => {
+    return (i, bl) => {
       // With more cards than squares, the picture repeats: card i takes square i mod n.
       const t = i % (cols * rows);
-      if (!cache.has(t)) {
+      const key = `${t}-${bl.l}-${bl.t}-${bl.r}-${bl.b}`;
+      if (!cache.has(key)) {
         const c = t % cols, r = Math.floor(t / cols);
-        // Tiles overlap by the bleed, so the picture stays continuous across cuts.
+        // The bleed shows the picture just past the card, so it stays continuous.
         const data = renderRegion(cols * w, rows * h,
-          { x: c * w - BLEED, y: r * h - BLEED, w: bw, h: bh });
-        cache.set(t, { data, alias: `tile${t}` });
+          { x: c * w - bl.l, y: r * h - bl.t, w: w + bl.l + bl.r, h: h + bl.t + bl.b });
+        cache.set(key, { data, alias: `tile${key}` });
       }
-      return cache.get(t);
+      return cache.get(key);
     };
   }
 
@@ -266,7 +279,8 @@
     const layout = pageLayout(s);
     const [cols, rows] = compositeGrid(s);
     const fmt = (pt) => `${(pt / 72).toFixed(2)}″`;
-    const cut = `Cut each card to ${fmt(layout.w)} × ${fmt(layout.h)} along the crop marks.`;
+    const cut = `The cards touch, so six straight cuts along the crop marks free them: the four outer edges, ` +
+      `then once down and once across the middle (each card ${fmt(layout.w)} × ${fmt(layout.h)}).`;
     const squares = cols * rows;
     let text = `The picture is ${cols} cards across and ${rows} down (${squares} square${squares === 1 ? "" : "s"}). `;
     if (s.count > squares) {
@@ -550,8 +564,8 @@
     });
   }
 
-  // Crop marks in the page margins, one in line with every cut. None go
-  // between cards, where marks from neighbouring cards would run together.
+  // Crop marks in the page margins, one at each end of every cut. With the
+  // cards touching, each cut runs the full width or height of the block.
   function drawCropMarks(doc, layout, slots) {
     const { w, h } = layout;
     const off = 4, len = 16;
@@ -604,15 +618,16 @@
         }
         drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset);
       });
-      if (!hasBack) continue;
       drawCropMarks(doc, layout, layout.slots.slice(0, batch.length));
+      if (!hasBack) continue;
       // The reverse page: each back mirrored to sit behind its front.
       doc.addPage();
       batch.forEach((card, k) => {
         const i = start + k;
         const pos = backSlot(s, layout, layout.slots[k]);
-        const img = backFor(i);
-        doc.addImage(img.data, "JPEG", pos.x - BLEED, pos.y - BLEED, w + 2 * BLEED, h + 2 * BLEED, img.alias, "FAST");
+        const bl = backBleed(layout, pos);
+        const img = backFor(i, bl);
+        doc.addImage(img.data, "JPEG", pos.x - bl.l, pos.y - bl.t, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
       });
     }
     return doc;
