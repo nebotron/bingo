@@ -665,12 +665,6 @@
   }
 
 
-  function drawCutOutline(doc, x, y, w, h) {
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.75);
-    doc.rect(x, y, w, h, "S");
-  }
-
   async function buildPdf(s, cards) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "pt", format: s.paper, orientation: "portrait", compress: true, floatPrecision: 2 });
@@ -702,7 +696,7 @@
         }
         drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset);
         // Without the illustrated border, outline the cut line instead.
-        if (s.border === "none") drawCutOutline(doc, slot.x, slot.y, w, h);
+        if (s.border === "none") window.PdfCanvas.outlineCut(doc, slot.x, slot.y, w, h);
       });
       drawCropMarks(doc, layout, layout.slots.slice(0, batch.length));
       if (!hasBack) continue;

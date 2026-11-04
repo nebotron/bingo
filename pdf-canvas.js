@@ -167,5 +167,12 @@
     doc.setLineJoin("miter");
   }
 
-  window.PdfCanvas = { pdfCanvas, placeArt };
+  // A black outline along a card's cut line, used when it prints without a border.
+  function outlineCut(doc, x, y, w, h) {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.75);
+    doc.rect(x, y, w, h, "S");
+  }
+
+  window.PdfCanvas = { pdfCanvas, placeArt, outlineCut };
 })();

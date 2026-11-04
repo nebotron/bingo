@@ -251,11 +251,7 @@
           doc.rect(slot.x, slot.y, layout.w, layout.fh, "S");
         }
         // Without a border, outline the cut line instead.
-        if (s.border === "none") {
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(0.75);
-          doc.rect(slot.x, slot.y, layout.w, layout.h, "S");
-        }
+        if (s.border === "none") window.PdfCanvas.outlineCut(doc, slot.x, slot.y, layout.w, layout.h);
       });
       drawMarks(doc, layout, layout.slots.slice(0, batch.length));
     }
