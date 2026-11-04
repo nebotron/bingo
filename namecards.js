@@ -11,9 +11,10 @@
 
   const PAPER = { letter: [612, 792], a4: [595.28, 841.89] };
   // Folded size in points; the printed piece is twice as tall.
-  const SIZES = { small: [252, 144], medium: [270, 180], large: [504, 324] };
+  const SIZES = { tiny: [216, 72], small: [252, 144], medium: [270, 180], large: [504, 324] };
   const MIN_MARGIN = 24;
-  const SPACING = 18;
+  // Cards butt up against each other so neighbours share a single cut.
+  const SPACING = 0;
   const INK = [42, 58, 48];
   const SOFT = [47, 93, 70];
   const CUT = [150, 150, 150];
@@ -32,7 +33,7 @@
       border: $("border").value,
       nameFont: $("nameFont").value,
       detailFont: $("detailFont").value,
-      size: SIZES[$("cardSize").value] ? $("cardSize").value : "small",
+      size: SIZES[$("cardSize").value] ? $("cardSize").value : "tiny",
       paper: $("paper").value,
       bothSides: $("bothSides").checked,
     };
