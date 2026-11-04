@@ -5,7 +5,7 @@
   const SAVE_VERSION = 2;
   const $ = (id) => document.getElementById(id);
   const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
-    "size", "count", "paper", "bgMode", "arrange", "flip"];
+    "size", "count", "paper", "bgMode", "arrange", "flip", "bgStyle", "dotSize"];
 
   // Page geometry, in points. Cards are cut at their slot edges, so when a
   // back image is used the slot is the trim box.
@@ -67,6 +67,8 @@
       bgMode: $("bgMode").value,
       arrange: $("arrange").value,
       flip: $("flip").value,
+      bgStyle: $("bgStyle").value,
+      dotSize: parseInt($("dotSize").value, 10) || 36,
     };
   }
 
@@ -231,13 +233,51 @@
     return canvas.toDataURL("image/jpeg", 0.9);
   }
 
+  // ---------- dithered backs ----------
+  // The whole picture (every card plus the outer bleed) is dithered once, with
+  // `dotSize` dots across each card, so dots line up across the cuts.
+
+  let ditherCache = null; // { key, canvas, pitch }
+
+  function ditheredPicture(s) {
+    const { w, h } = pageLayout(s);
+    const [cols, rows] = s.bgMode === "composite" ? compositeGrid(s) : [1, 1];
+    const pitch = w / s.dotSize; // points per dot
+    const W = cols * w + 2 * BLEED, H = rows * h + 2 * BLEED;
+    const key = [bgImage.src, s.bgStyle, s.dotSize, cols, rows, w, h].join("|");
+    if (!ditherCache || ditherCache.key !== key) {
+      const canvas = window.Dither.ditherImage(bgImage, Math.ceil(W / pitch), Math.ceil(H / pitch), s.bgStyle);
+      ditherCache = { key, canvas, pitch };
+    }
+    return ditherCache;
+  }
+
+  // A region of the dithered picture (in points, from its top-left including
+  // bleed) as a crisp PNG.
+  function renderDithered(s, region) {
+    const { canvas: dots, pitch } = ditheredPicture(s);
+    // Whole output pixels per dot keep every dot the same size.
+    const pxPerDot = Math.max(1, Math.round((MAX_DPI / 72) * pitch));
+    const out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round((region.w / pitch) * pxPerDot));
+    out.height = Math.max(1, Math.round((region.h / pitch) * pxPerDot));
+    const ctx = out.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(dots, region.x / pitch, region.y / pitch, region.w / pitch, region.h / pitch,
+      0, 0, out.width, out.height);
+    return out.toDataURL("image/png");
+  }
+
   // Returns a function giving the back image (including bleed) for card i.
   function backImages(s) {
     const { w, h } = pageLayout(s);
     const bw = w + 2 * BLEED, bh = h + 2 * BLEED;
+    const dithered = s.bgStyle !== "photo";
+    const format = dithered ? "PNG" : "JPEG";
     if (s.bgMode === "simple") {
-      const data = renderRegion(bw, bh, { x: 0, y: 0, w: bw, h: bh });
-      return () => ({ data, alias: "back" });
+      const region = { x: 0, y: 0, w: bw, h: bh };
+      const data = dithered ? renderDithered(s, region) : renderRegion(bw, bh, region);
+      return () => ({ data, alias: "back", format });
     }
     const [cols, rows] = compositeGrid(s);
     const cache = new Map();
@@ -247,9 +287,10 @@
       if (!cache.has(t)) {
         const c = t % cols, r = Math.floor(t / cols);
         // Tiles overlap by the bleed, so the picture stays continuous across cuts.
-        const data = renderRegion(cols * w + 2 * BLEED, rows * h + 2 * BLEED,
-          { x: c * w, y: r * h, w: bw, h: bh });
-        cache.set(t, { data, alias: `tile${t}` });
+        const region = { x: c * w, y: r * h, w: bw, h: bh };
+        const data = dithered ? renderDithered(s, region)
+          : renderRegion(cols * w + 2 * BLEED, rows * h + 2 * BLEED, region);
+        cache.set(t, { data, alias: `tile${t}`, format });
       }
       return cache.get(t);
     };
@@ -260,6 +301,7 @@
     const on = s.bgMode !== "none";
     $("bgOptions").hidden = !on;
     $("arrangeWrap").hidden = s.bgMode !== "composite";
+    $("dotSizeWrap").hidden = s.bgStyle === "photo";
     const canvas = $("bgPreview");
     canvas.hidden = !(on && bgImage);
     const hint = $("bgHint");
@@ -300,9 +342,16 @@
     canvas.style.width = `${Math.round(W * k)}px`;
     canvas.style.height = `${Math.round(H * k)}px`;
     const ctx = canvas.getContext("2d");
-    const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-    const scale = Math.max(canvas.width / iw, canvas.height / ih);
-    ctx.drawImage(bgImage, (canvas.width - iw * scale) / 2, (canvas.height - ih * scale) / 2, iw * scale, ih * scale);
+    if (s.bgStyle !== "photo") {
+      // The dithered picture without its outer bleed, dots kept sharp.
+      const { canvas: dots, pitch } = ditheredPicture(s);
+      ctx.imageSmoothingEnabled = canvas.width / (W / pitch) < 2;
+      ctx.drawImage(dots, BLEED / pitch, BLEED / pitch, W / pitch, H / pitch, 0, 0, canvas.width, canvas.height);
+    } else {
+      const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
+      const scale = Math.max(canvas.width / iw, canvas.height / ih);
+      ctx.drawImage(bgImage, (canvas.width - iw * scale) / 2, (canvas.height - ih * scale) / 2, iw * scale, ih * scale);
+    }
     if (cols * rows > 1) {
       const cw = canvas.width / cols, ch = canvas.height / rows;
       ctx.strokeStyle = "rgba(255,255,255,0.9)";
@@ -498,7 +547,7 @@
     let cursor = y + padT + (h - padT - padB - fixed - side) / 2;
 
     const img = borderImage(w, h);
-    doc.addImage(img.data, "JPEG", x, y, w, h, img.alias, "FAST");
+    doc.addImage(img.data, img.format, x, y, w, h, img.alias, "FAST");
 
     if (s.title) {
       doc.setTextColor(...INK);
@@ -622,7 +671,7 @@
         const i = start + k;
         const pos = backSlot(s, layout, layout.slots[k]);
         const img = backFor(i);
-        doc.addImage(img.data, "JPEG", pos.x - BLEED, pos.y - BLEED, w + 2 * BLEED, h + 2 * BLEED, img.alias, "FAST");
+        doc.addImage(img.data, img.format, pos.x - BLEED, pos.y - BLEED, w + 2 * BLEED, h + 2 * BLEED, img.alias, "FAST");
       });
     }
     return doc;

@@ -18,6 +18,8 @@ Optionally, pick an image to print on the back of the cards:
 - **Simple**: the same image goes on the back of every card.
 - **Composite**: the image is sliced so that the card backs, laid side by side, form one large picture. Type the grid size (columns × rows, like `4x5`), or leave it blank to let the app pick the grid that best fits the image. If there are more cards than grid squares, the picture repeats: cards 1 to N make one complete picture, the next N another, and so on. Each card's front shows its number, its row and column, and a small map of where it goes.
 
+**Image style** can turn the picture into black dots on white (dithering). Because a dot pattern only turns into a picture when you see enough of it, one card back on its own looks like abstract texture, while the cards laid out together show the photo. Choose **scattered dots** (Floyd–Steinberg, best for photos), **high contrast** (Atkinson, which turns dark areas solid black) or **regular pattern** (ordered Bayer dithering). Then choose the dot size, counted in dots across one card: fewer, larger dots hide the picture better on a single card. The whole picture is dithered in one pass (in `dither.js`), so the dots carry on across the cuts. Black-and-white photos work best.
+
 With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The back images extend 1/8" past the cut lines so small printer misalignments don't leave white edges. For a composite, lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
 ## Name cards
@@ -54,4 +56,4 @@ python3 -m http.server
 
 Font outlines come from [opentype.js](https://github.com/opentypejs/opentype.js) 1.3.4 (MIT), vendored in `vendor/`. PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
 
-The fonts the PDF tools share are listed in `pdf-fonts.js`. The pages link `style.css`, `pdf-fonts.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
+The fonts the PDF tools share are listed in `pdf-fonts.js`. The pages link `style.css`, `pdf-fonts.js`, `dither.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
