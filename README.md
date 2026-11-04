@@ -4,7 +4,9 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line. Optionally add a game explanation, which prints between the title and the grid; line breaks you type are kept.
 2. Set the free-space text, or turn the free space off.
-3. Pick a card style. Four are woodland designs drawn as vector ornaments:
+3. Pick a card style. **Pacific Northwest**, the default, frames the card with an illustrated border of native plants and animals: a thimbleberry vine with its leaves, white flowers and berries along the top and sides, sword ferns and mushrooms (fly agaric, chanterelles and small brown caps) along the bottom, and a song sparrow and a cedar waxwing perched in the top corners. Inside it is the open green grid from Clearing. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card, so it fits 1, 2 or 4 cards per page.
+
+   Four more woodland designs use simple vector ornaments:
    - **Evergreen**: a double-rule frame, fern sprigs in the top corners and a leaf wreath around the free space.
    - **Fern & Moss**: a leafy arch over the title, the explanation in a framed panel, and the squares as pale sage tiles.
    - **Timber**: spaced capitals, a treeline along the bottom and tree rings in the free space. Use plain **Timber** to print on kraft cardstock, or **Timber with kraft background** to print the color.
@@ -49,4 +51,4 @@ python3 -m http.server
 
 Font outlines come from [opentype.js](https://github.com/opentypejs/opentype.js) 1.3.4 (MIT), vendored in `vendor/`. PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
 
-The pages link `style.css`, `app.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
+The pages link `style.css`, `app.js`, `pnw-art.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.

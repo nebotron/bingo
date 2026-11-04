@@ -712,6 +712,25 @@
         pine(doc, cx, base, 34 * k, this.ink);
         pine(doc, cx + 12 * k, base, 24 * k, this.soft);
       },
+      freeInk: [47, 93, 70],
+      free() { return null; },
+    },
+
+    // Clearing's open grid inside an illustrated border (pnw-art.js). The
+    // border sets the spacing, so the pads here are zero.
+    northwest: {
+      label: "Pacific Northwest", fonts: { titleFont: "greatvibes", clueFont: "cormorant" },
+      ink: [42, 58, 48], soft: [47, 93, 70], line: [47, 93, 70], muted: [122, 138, 128],
+      padTop: 0, padBottom: 0, padX: 0, above: 0, titleSize: 11,
+      rulesW: 100, gridMax: 100, outer: 0, freeInk: [47, 93, 70],
+      insets(w, h) {
+        const m = window.PnwArt.metrics(w, h);
+        return { top: m.band + 10 * m.s, bottom: m.bottom + 8 * m.s, x: m.band + 14 * m.s, titleW: w - 2 * m.corner };
+      },
+      card(doc, x, y, w, h) {
+        const img = borderImage(w, h);
+        doc.addImage(img.data, "JPEG", x, y, w, h, img.alias, "FAST");
+      },
       free() { return null; },
     },
 
@@ -728,6 +747,25 @@
     },
   };
   STYLES.timberKraft = Object.assign(Object.create(STYLES.timber), { label: "Timber with kraft background", fill: true });
+
+  // The illustrated border, painted once per card size at print resolution.
+  const BORDER_DPI = 200;
+  const borderCache = {};
+  function borderImage(w, h) {
+    const key = `${w.toFixed(1)}x${h.toFixed(1)}`;
+    if (!borderCache[key]) {
+      const W = Math.round((w / 72) * BORDER_DPI), H = Math.round((h / 72) * BORDER_DPI);
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, W, H);
+      window.PnwArt.drawBorder(ctx, W, H);
+      borderCache[key] = { data: canvas.toDataURL("image/jpeg", 0.92), alias: "pnw-border-" + key };
+    }
+    return borderCache[key];
+  }
 
   // Draws a title on one line in spaced capitals, as large as fits.
   function drawCapsTitle(doc, text, cx, cy, w, h) {
@@ -748,13 +786,17 @@
   // composite picture as { cols, rows, c, r }, drawn as a small map. `outer`
   // is the card's full area, including any bleed, for background fills.
   function drawCard(doc, fonts, card, s, label, place, x, y, w, h, outer) {
-    const st = STYLES[s.style] || STYLES.evergreen;
+    const st = STYLES[s.style] || STYLES.northwest;
     const n = s.size;
     // Spacing unit: 1/100 of the card width, or less on short cards.
     const u = Math.min(w / 100, h / 120);
     const gap = Math.min(2.2 * u, 10);
-    const padT = st.padTop * u, padB = st.padBottom * u, padX = st.padX * u;
+    const ins = st.insets ? st.insets(w, h) : null;
+    const padT = ins ? ins.top : st.padTop * u;
+    const padB = ins ? ins.bottom : st.padBottom * u;
+    const padX = ins ? ins.x : st.padX * u;
     const innerW = w - 2 * padX;
+    const titleW = ins ? Math.min(innerW, ins.titleW) : innerW;
     const cx = x + w / 2;
     const aboveH = s.title ? st.above * u : 0;
     const titleH = s.title ? Math.min(st.titleSize * u, 64) : 0;
@@ -794,8 +836,8 @@
       cursor += aboveH;
       doc.setTextColor(...st.ink);
       doc.setFont(fonts.title, "bold");
-      if (st.caps) drawCapsTitle(doc, s.title, cx, cursor + titleH / 2, innerW, titleH);
-      else drawCentered(doc, s.title, cx, cursor + titleH / 2, innerW, titleH, titleH * 0.85, 8);
+      if (st.caps) drawCapsTitle(doc, s.title, cx, cursor + titleH / 2, titleW, titleH);
+      else drawCentered(doc, s.title, cx, cursor + titleH / 2, titleW, titleH, titleH * 0.85, 8);
       cursor += titleH + gap;
       if (dividerH) {
         st.divider(doc, cx, cursor + dividerH / 2 - gap / 2, u);
@@ -913,7 +955,7 @@
       }
       // The free square uses the clue font, a little larger.
       let box = st === STYLES.plain ? null : st.free(doc, cx, cy, cell, rectOf(i));
-      if (st === STYLES.clearing) doc.setTextColor(...st.soft);
+      if (st.freeInk) doc.setTextColor(...st.freeInk);
       if (box && box.plaque) {
         doc.setFont(fonts.clue, "normal");
         const fit = fitText(doc, c.text, box.w, box.h, maxFont * 1.2, 4);
@@ -1076,14 +1118,14 @@
   // ---------- wiring ----------
 
   populateFontSelects();
-  for (const key of ["evergreen", "fern", "timber", "timberKraft", "clearing", "plain"]) {
+  for (const key of ["northwest", "evergreen", "fern", "timber", "timberKraft", "clearing", "plain"]) {
     const st = STYLES[key];
     const opt = document.createElement("option");
     opt.value = key;
     opt.textContent = st.label;
     $("style").appendChild(opt);
   }
-  $("style").value = "evergreen";
+  $("style").value = "northwest";
   loadForm();
   updateArrangeOptions();
   updateCount();
