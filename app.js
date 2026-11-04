@@ -17,7 +17,8 @@
   const MAX_DPI = 250;
   const CARDS_PER_PAGE = 4; // always a 2 × 2 sheet
 
-  // The image the user picked; never stored (it can be large).
+  // The image the user picked. It's kept in IndexedDB (it can be too large for
+  // localStorage) so it comes back after a refresh.
   let bgImage = null;
 
   // ---------- fonts ----------
@@ -400,19 +401,44 @@
     }
   }
 
-  function loadImage(file) {
-    if (!file) { bgImage = null; updateBackground(); regenerate(); return; }
+  // ---------- saved back image ----------
+
+  function imageStore(mode, fn) {
+    return new Promise((resolve) => {
+      try {
+        const req = indexedDB.open("bingo", 1);
+        req.onupgradeneeded = () => req.result.createObjectStore("files");
+        req.onerror = () => resolve(null);
+        req.onsuccess = () => {
+          try {
+            const tx = req.result.transaction("files", mode);
+            const r = fn(tx.objectStore("files"));
+            tx.oncomplete = () => resolve(r && r.result);
+            tx.onerror = tx.onabort = () => resolve(null);
+          } catch (e) { resolve(null); }
+        };
+      } catch (e) { resolve(null); }
+    });
+  }
+  const saveImage = (file) => imageStore("readwrite", (st) => st.put(file, "backImage"));
+  const forgetImage = () => imageStore("readwrite", (st) => st.delete("backImage"));
+  const savedImage = () => imageStore("readonly", (st) => st.get("backImage"));
+
+  // `restored` is true when the image comes back from storage on page load.
+  function loadImage(file, restored = false) {
+    if (!file) { bgImage = null; forgetImage(); updateBackground(); regenerate(); return; }
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       bgImage = img;
-      showBack = true;
+      if (!restored) { showBack = true; saveImage(file); }
       updateBackground();
       regenerate();
     };
     img.onerror = () => {
       bgImage = null;
       URL.revokeObjectURL(url);
+      if (restored) { forgetImage(); return; }
       updateBackground();
       regenerate().then(() => { $("error").textContent = "That file couldn't be read as an image."; });
     };
@@ -515,24 +541,11 @@
   const GREEN = [47, 93, 70];   // grid lines, explanation and free space
   const MUTED = [122, 138, 128];
 
-  // The illustrated border (pnw-art.js), painted once per card size at print
-  // resolution and placed behind the card.
-  const BORDER_DPI = 200;
-  const borderCache = {};
-  function borderImage(w, h) {
-    const key = `${w.toFixed(1)}x${h.toFixed(1)}`;
-    if (!borderCache[key]) {
-      const W = Math.round((w / 72) * BORDER_DPI), H = Math.round((h / 72) * BORDER_DPI);
-      const canvas = document.createElement("canvas");
-      canvas.width = W;
-      canvas.height = H;
-      const ctx = canvas.getContext("2d");
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, W, H);
-      window.PnwArt.drawBorder(ctx, W, H);
-      borderCache[key] = { data: canvas.toDataURL("image/jpeg", 0.92), alias: "pnw-border-" + key };
-    }
-    return borderCache[key];
+  // The illustrated border (pnw-art.js), drawn as vector paths and placed
+  // on each card as a reusable PDF object.
+  function drawBorder(doc, x, y, w, h) {
+    window.PdfCanvas.placeArt(doc, `pnw-${w.toFixed(2)}x${h.toFixed(2)}`, w, h, x, y, false,
+      (ctx) => window.PnwArt.drawBorder(ctx, w, h));
   }
 
   // `label` is the footer text (or ""); `place` marks the card's position in a
@@ -563,8 +576,7 @@
     const side = Math.max(0, Math.min(innerW, h - padT - padB - fixed));
     let cursor = y + padT + (h - padT - padB - fixed - side) / 2;
 
-    const img = borderImage(w, h);
-    doc.addImage(img.data, "JPEG", x, y, w, h, img.alias, "FAST");
+    drawBorder(doc, x, y, w, h);
 
     if (s.title) {
       doc.setTextColor(...INK);
@@ -654,7 +666,7 @@
 
   async function buildPdf(s, cards) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ unit: "pt", format: s.paper, orientation: "portrait" });
+    const doc = new jsPDF({ unit: "pt", format: s.paper, orientation: "portrait", compress: true, floatPrecision: 2 });
     const fonts = {
       title: await useFont(doc, s.titleFont),
       clue: await useFont(doc, s.clueFont),
@@ -788,6 +800,7 @@
   updateFontSamples();
   updateBackground();
   regenerate();
+  savedImage().then((file) => { if (file && !bgImage) loadImage(file, true); });
 
   $("bgFile").addEventListener("change", (e) => loadImage(e.target.files[0]));
   $("count").addEventListener("input", updateBackground);

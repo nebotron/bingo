@@ -4,7 +4,7 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line. Optionally add a game explanation, which prints between the title and the grid; line breaks you type are kept.
 2. Set the free-space text, or turn the free space off.
-3. The cards have one design: an illustrated border of Pacific Northwest plants and animals (thimbleberry, sword ferns, mushrooms, a song sparrow and a cedar waxwing) around an open green grid. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card.
+3. The cards have one design: an illustrated border of Pacific Northwest plants and animals (thimbleberry, sword ferns, mushrooms, a song sparrow and a cedar waxwing) around an open green grid. The border is drawn in `pnw-art.js` and written into the PDF as vector paths, defined once and reused on every card, so it stays sharp at any print size.
 4. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
 5. Choose the grid size, number of cards and paper size. Cards always print four to a page, in a 2 × 2 block with no gaps between them, so six straight cuts along the crop marks separate them: the four outer edges, then once down and once across the middle.
 6. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
@@ -26,7 +26,7 @@ With a back image, the PDF alternates front and back pages. Print it double-side
 `namecards.html` makes foldable place cards (tent cards) for seating, with the same artwork as the Pacific Northwest bingo card.
 
 - Enter one name per line. To add a smaller second line, such as a table number or meal, put it after a `|` or a tab (`Emma Thompson | Table 4`); two columns pasted from a spreadsheet work as-is.
-- Pick a border: **Pacific Northwest** (the bingo card's vine, ferns, mushrooms and birds) or **Floral vine** (the thimbleberry vine with its white flowers and berries, running all the way round). The vine frame is drawn by `PnwArt.drawFloralFrame` in `pnw-art.js`.
+- Pick a border: **Pacific Northwest** (the bingo card's vine, ferns, mushrooms and birds) or **Floral vine** (the thimbleberry vine with its white flowers and berries, running all the way round). The vine frame is drawn by `PnwArt.drawFloralFrame` in `pnw-art.js`. Both borders go into the PDF as vector paths, so they print sharp at any size.
 - Pick fonts for the name and the second line. A name stays on one line unless it fits much larger on two.
 - Sizes when folded: 3.5 × 2 in or 3.75 × 2.5 in (four per page), or 7 × 4.5 in (one per page), on Letter or A4.
 - Each card prints twice the folded height. The bottom half is the front; the top half carries the same face upside down, so once folded the name reads from both sides of the table. Untick **Print the name on both sides** to leave the back plain.
@@ -55,4 +55,4 @@ python3 -m http.server
 
 Font outlines come from [opentype.js](https://github.com/opentypejs/opentype.js) 1.3.4 (MIT), vendored in `vendor/`. PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
 
-The fonts the PDF tools share are listed in `pdf-fonts.js`. The pages link `style.css`, `pdf-fonts.js`, `dither.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
+The fonts the PDF tools share are listed in `pdf-fonts.js`, and `pdf-canvas.js` writes the canvas-style artwork into a PDF as vector paths. The pages link `style.css`, `pdf-fonts.js`, `pdf-canvas.js`, `dither.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
