@@ -15,7 +15,6 @@
     berry: "#c4353d", berryLight: "#e0565b", berryDark: "#8c1f28",
     petal: "#fdfcf7", petalShade: "#dcd8cb", center: "#e2c35b",
     moss: "#7b9445", mossDark: "#5b7232",
-    rule: "#2f5d46",
   };
 
   // Deterministic random numbers, so every card gets the same border.
@@ -793,16 +792,6 @@
     const m = metrics(W, H);
     const { s } = m;
     ctx.save();
-
-    // A fine rule framing the content, behind everything else.
-    ctx.strokeStyle = C.rule;
-    ctx.globalAlpha = 0.55;
-    ctx.lineWidth = 0.9 * s;
-    const ri = m.band * 0.95;
-    ctx.beginPath();
-    ctx.roundRect(ri, ri, W - 2 * ri, H - ri - m.bottom * 0.9, 10 * s);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
 
     drawVine(ctx, W, H, m);
 
