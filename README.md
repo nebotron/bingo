@@ -20,6 +20,17 @@ Optionally, pick an image to print on the back of the cards:
 
 With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut each card along the crop marks. The back images extend 1/8" past the cut lines so small printer misalignments don't leave white edges. For a composite, lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
+## Name cards
+
+`namecards.html` makes foldable place cards (tent cards) for seating, with the same artwork as the Pacific Northwest bingo card.
+
+- Enter one name per line. To add a smaller second line, such as a table number or meal, put it after a `|` or a tab (`Emma Thompson | Table 4`); two columns pasted from a spreadsheet work as-is.
+- Pick a border: **Pacific Northwest** (the bingo card's vine, ferns, mushrooms and birds) or **Floral vine** (the thimbleberry vine with its white flowers and berries, running all the way round). The vine frame is drawn by `PnwArt.drawFloralFrame` in `pnw-art.js`.
+- Pick fonts for the name and the second line. A name stays on one line unless it fits much larger on two.
+- Sizes when folded: 3.5 × 2 in or 3.75 × 2.5 in (four per page), or 7 × 4.5 in (one per page), on Letter or A4.
+- Each card prints twice the folded height. The bottom half is the front; the top half carries the same face upside down, so once folded the name reads from both sides of the table. Untick **Print the name on both sides** to leave the back plain.
+- Print at actual size on cardstock, cut along the crop marks and fold along the line between the dashed fold marks.
+
 ## Circle text
 
 `semicircle.html` is a second tool: it wraps two texts inside a circle, one in the left half and one in the right, and downloads the result as an SVG you can import into Canva or another design tool.
@@ -43,4 +54,4 @@ python3 -m http.server
 
 Font outlines come from [opentype.js](https://github.com/opentypejs/opentype.js) 1.3.4 (MIT), vendored in `vendor/`. PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
 
-The pages link `style.css`, `app.js`, `pnw-art.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
+The fonts the PDF tools share are listed in `pdf-fonts.js`. The pages link `style.css`, `pdf-fonts.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
