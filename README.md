@@ -4,7 +4,7 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line. Optionally add a game explanation, which prints between the title and the grid; line breaks you type are kept.
 2. Set the free-space text, or turn the free space off.
-3. The cards have one design: an illustrated border of Pacific Northwest plants and animals (thimbleberry, sword ferns, mushrooms, a song sparrow and a cedar waxwing) around an open green grid. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card.
+3. The cards have one design: an illustrated border of Pacific Northwest plants and animals (thimbleberry, sword ferns, mushrooms, a song sparrow and a cedar waxwing) around an open green grid. The border is drawn in `pnw-art.js` and written into the PDF as vector paths, defined once and reused on every card, so it stays sharp at any print size.
 4. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
 5. Choose the grid size, number of cards and paper size. Cards always print four to a page, in a 2 × 2 block with no gaps between them, so six straight cuts along the crop marks separate them: the four outer edges, then once down and once across the middle.
 6. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
