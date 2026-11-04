@@ -175,19 +175,27 @@
   // ---------- vine path ----------
 
   // Points along the vine: up the left side, across the top, down the right.
-  function vinePath(W, H, m) {
+  // A closed vine carries on along the bottom and back up to where it began.
+  function vinePath(W, H, m, closed) {
     const { s, band } = m;
     const inset = band * 0.5;
-    const rad = 70 * s;
-    const yEnd = H - 150 * s;
+    const rad = closed ? 40 * s : 70 * s;
+    const yEnd = closed ? H - inset - rad : H - 150 * s;
     const pts = [];
     const push = (x, y) => pts.push([x, y]);
     const step = 1.5 * s;
-    for (let y = yEnd; y > inset + rad; y -= step) push(inset, y);
+    const yStart = closed ? H / 2 : yEnd;
+    for (let y = yStart; y > inset + rad; y -= step) push(inset, y);
     for (let a = Math.PI; a < Math.PI * 1.5; a += step / rad) push(inset + rad + Math.cos(a) * rad, inset + rad + Math.sin(a) * rad);
     for (let x = inset + rad; x < W - inset - rad; x += step) push(x, inset);
     for (let a = Math.PI * 1.5; a < Math.PI * 2; a += step / rad) push(W - inset - rad + Math.cos(a) * rad, inset + rad + Math.sin(a) * rad);
     for (let y = inset + rad; y < yEnd; y += step) push(W - inset, y);
+    if (closed) {
+      for (let a = 0; a < Math.PI * 0.5; a += step / rad) push(W - inset - rad + Math.cos(a) * rad, H - inset - rad + Math.sin(a) * rad);
+      for (let x = W - inset - rad; x > inset + rad; x -= step) push(x, H - inset);
+      for (let a = Math.PI * 0.5; a < Math.PI; a += step / rad) push(inset + rad + Math.cos(a) * rad, H - inset - rad + Math.sin(a) * rad);
+      for (let y = H - inset - rad; y > H / 2; y -= step) push(inset, y);
+    }
     // Wobble the stem gently along its normal.
     const out = [];
     let dist = 0;
@@ -202,9 +210,11 @@
     return out;
   }
 
-  function drawVine(ctx, W, H, m) {
+  // `floral` makes a closed vine all the way round, with more flowers and no
+  // room left for birds.
+  function drawVine(ctx, W, H, m, floral) {
     const { s } = m;
-    const path = vinePath(W, H, m);
+    const path = vinePath(W, H, m, floral);
     const total = path[path.length - 1].d;
     const at = (d) => path[Math.min(path.length - 1, Math.max(0, Math.round((d / total) * (path.length - 1))))];
     const r = rng(11);
@@ -222,7 +232,10 @@
 
     // Leaves, flowers and berries at nodes along the stem. The top corners
     // are left to the birds.
-    const birdZones = [[0, 0, 150 * s, 120 * s], [W - 150 * s, 0, W, 120 * s]];
+    const birdZones = floral ? [] : [[0, 0, 150 * s, 120 * s], [W - 150 * s, 0, W, 120 * s]];
+    const isFlower = (k) => (floral ? k % 2 === 1 : k % 5 === 2);
+    const isBerry = (k) => (floral ? k % 8 === 4 : k % 5 === 4);
+    const flowerSize = floral ? 27 : 19;
     const inBird = (x, y) => birdZones.some(([a, b, c, d]) => x > a && x < c && y > b && y < d);
     let side = 1, n = 0;
     for (let d = 20 * s; d < total - 10 * s; d += (38 + r() * 14) * s, n++) {
@@ -236,7 +249,7 @@
       const birdHere = inBird(p.x, p.y);
       ctx.save();
       ctx.translate(p.x, p.y);
-      if (n % 5 === 2 && !birdHere) {
+      if (isFlower(n) && !birdHere) {
         ctx.rotate(lean);
         thimbleLeaf(ctx, size * 0.85, 100 + n);
         ctx.restore();
@@ -250,11 +263,11 @@
         ctx.stroke();
         ctx.save();
         ctx.translate(fx, fy);
-        thimbleFlower(ctx, 19 * s, 300 + n);
+        thimbleFlower(ctx, flowerSize * s, 300 + n);
         ctx.restore();
         continue;
       }
-      if (n % 5 === 4 && !birdHere) {
+      if (isBerry(n) && !birdHere) {
         ctx.rotate(lean);
         thimbleLeaf(ctx, size * 0.8, 100 + n);
         ctx.restore();
@@ -856,5 +869,18 @@
     ctx.restore();
   }
 
-  window.PnwArt = { drawBorder, metrics };
+  // The thimbleberry vine alone, running all the way round. Its band is the
+  // same width on every side.
+  function floralMetrics(W, H) {
+    const m = metrics(W, H);
+    return { ...m, bottom: m.band, corner: m.band };
+  }
+
+  function drawFloralFrame(ctx, W, H) {
+    ctx.save();
+    drawVine(ctx, W, H, floralMetrics(W, H), true);
+    ctx.restore();
+  }
+
+  window.PnwArt = { drawBorder, metrics, drawFloralFrame, floralMetrics };
 })();
