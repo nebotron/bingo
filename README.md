@@ -17,6 +17,8 @@ Optionally, pick an image to print on the back of the cards. With no image, the 
 
 The image is sliced so that the card backs, laid side by side, form one large picture. Type the grid size (columns × rows, like `4x5`), or leave it blank to let the app pick the grid that best fits the image. If there are more cards than grid squares, the picture repeats: cards 1 to N make one complete picture, the next N another, and so on (a `1x1` grid puts the whole image on every card). Each card's front shows its number, its row and column, and a small map of where it goes.
 
+**Image style** can turn the picture into black dots on white (dithering). A dot pattern only turns into a picture when you see enough of it, so one card back on its own looks like abstract texture, while the cards laid out together show the photo. Choose **scattered dots** (Floyd–Steinberg, best for photos), **high contrast** (Atkinson, which turns dark areas solid black) or **regular pattern** (ordered Bayer dithering), then the dot size, counted in dots across one card: fewer, larger dots hide the picture better on a single card. The whole picture is dithered in one pass (in `dither.js`), so the dots carry on across the cuts. Black-and-white photos work best.
+
 With a back image, the PDF alternates front and back pages. Print it double-sided, flipping on the edge you chose (long edge is usual), then cut along the crop marks. The whole image is always printed: it is scaled to fit inside the cut cards (the full grid of cards) and never cropped, so if its shape differs from the cards the leftover space is white. Along the outer edges of each sheet the image extends 1/8" past the cut line, so small printer misalignments don't leave white edges there. Lay the cards out front side up in number order, left to right and top to bottom, then turn each one over where it lies.
 
 ## Name cards
@@ -53,4 +55,4 @@ python3 -m http.server
 
 Font outlines come from [opentype.js](https://github.com/opentypejs/opentype.js) 1.3.4 (MIT), vendored in `vendor/`. PDF generation uses [jsPDF](https://github.com/parallax/jsPDF) 2.5.2 (MIT), vendored in `vendor/`. The fonts in `fonts/` are from Google Fonts under the SIL Open Font License (see `fonts/LICENSE-OFL.txt`).
 
-The fonts the PDF tools share are listed in `pdf-fonts.js`. The pages link `style.css`, `pdf-fonts.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.
+The fonts the PDF tools share are listed in `pdf-fonts.js`. The pages link `style.css`, `pdf-fonts.js`, `dither.js`, `app.js`, `pnw-art.js`, `namecards.js` and `semicircle.js` with a `?v=` version. When you change one of those files, bump the version in `index.html`, `namecards.html` and `semicircle.html` so browsers don't pair a new page with an old cached script.

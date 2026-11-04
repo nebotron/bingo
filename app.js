@@ -5,7 +5,7 @@
   const SAVE_VERSION = 2;
   const $ = (id) => document.getElementById(id);
   const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
-    "size", "count", "paper", "arrange", "flip"];
+    "size", "count", "paper", "arrange", "flip", "bgStyle", "dotSize"];
 
   // Page geometry, in points. The four cards touch, with no gap between
   // them, so the sheet comes apart in six straight cuts: one along each outer
@@ -68,6 +68,8 @@
       bgMode: bgImage ? "composite" : "none",
       arrange: $("arrange").value,
       flip: $("flip").value,
+      bgStyle: $("bgStyle").value,
+      dotSize: parseInt($("dotSize").value, 10) || 36,
     };
   }
 
@@ -246,10 +248,55 @@
     };
   }
 
+  // ---------- dithered backs ----------
+  // The whole picture (every card plus the outer bleed) is dithered once, with
+  // `dotSize` dots across each card, so the dots carry on across the cuts.
+
+  let ditherCache = null; // { key, canvas, pitch }
+
+  function ditheredPicture(s) {
+    const { w, h } = pageLayout(s);
+    const [cols, rows] = compositeGrid(s);
+    const pitch = w / s.dotSize; // points per dot
+    const key = [bgImage.src, s.bgStyle, s.dotSize, cols, rows, w, h].join("|");
+    if (!ditherCache || ditherCache.key !== key) {
+      // Like renderRegion: the image fits inside the cards, centred.
+      const fitW = cols * w, fitH = rows * h;
+      const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
+      const scale = Math.min(fitW / iw, fitH / ih);
+      const rect = {
+        x: (BLEED + (fitW - iw * scale) / 2) / pitch, y: (BLEED + (fitH - ih * scale) / 2) / pitch,
+        w: (iw * scale) / pitch, h: (ih * scale) / pitch,
+      };
+      const canvas = window.Dither.ditherImage(bgImage,
+        Math.ceil((fitW + 2 * BLEED) / pitch), Math.ceil((fitH + 2 * BLEED) / pitch), s.bgStyle, rect);
+      ditherCache = { key, canvas, pitch };
+    }
+    return ditherCache;
+  }
+
+  // A region of the dithered picture (in points from the cards' top-left,
+  // negative reaching into the bleed) as a crisp PNG.
+  function renderDithered(s, region) {
+    const { canvas: dots, pitch } = ditheredPicture(s);
+    // Whole output pixels per dot keep every dot the same size.
+    const pxPerDot = Math.max(1, Math.round((MAX_DPI / 72) * pitch));
+    const out = document.createElement("canvas");
+    out.width = Math.max(1, Math.round((region.w / pitch) * pxPerDot));
+    out.height = Math.max(1, Math.round((region.h / pitch) * pxPerDot));
+    const ctx = out.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(dots, (region.x + BLEED) / pitch, (region.y + BLEED) / pitch,
+      region.w / pitch, region.h / pitch, 0, 0, out.width, out.height);
+    return out.toDataURL("image/png");
+  }
+
   // Returns a function giving the back image for card i, with the given bleed.
   function backImages(s) {
     const { w, h } = pageLayout(s);
     const [cols, rows] = compositeGrid(s);
+    const dithered = s.bgStyle !== "photo";
+    const format = dithered ? "PNG" : "JPEG";
     const cache = new Map();
     return (i, bl) => {
       // With more cards than squares, the picture repeats: card i takes square i mod n.
@@ -258,9 +305,9 @@
       if (!cache.has(key)) {
         const c = t % cols, r = Math.floor(t / cols);
         // The bleed shows the picture just past the card, so it stays continuous.
-        const data = renderRegion(cols * w, rows * h,
-          { x: c * w - bl.l, y: r * h - bl.t, w: w + bl.l + bl.r, h: h + bl.t + bl.b });
-        cache.set(key, { data, alias: `tile${key}` });
+        const region = { x: c * w - bl.l, y: r * h - bl.t, w: w + bl.l + bl.r, h: h + bl.t + bl.b };
+        const data = dithered ? renderDithered(s, region) : renderRegion(cols * w, rows * h, region);
+        cache.set(key, { data, alias: `tile${key}`, format });
       }
       return cache.get(key);
     };
@@ -271,6 +318,7 @@
     const on = s.bgMode !== "none";
     $("bgOptions").hidden = !on;
     $("bgClear").hidden = !on;
+    $("dotSizeWrap").hidden = s.bgStyle === "photo";
     const canvas = $("bgPreview");
     canvas.hidden = !on;
     const hint = $("bgHint");
@@ -307,11 +355,18 @@
     canvas.style.width = `${Math.round(W * k)}px`;
     canvas.style.height = `${Math.round(H * k)}px`;
     const ctx = canvas.getContext("2d");
-    const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-    const scale = Math.min(canvas.width / iw, canvas.height / ih);
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bgImage, (canvas.width - iw * scale) / 2, (canvas.height - ih * scale) / 2, iw * scale, ih * scale);
+    if (s.bgStyle !== "photo") {
+      // The dithered picture without its outer bleed, dots kept sharp.
+      const { canvas: dots, pitch } = ditheredPicture(s);
+      ctx.imageSmoothingEnabled = canvas.width / (W / pitch) < 2;
+      ctx.drawImage(dots, BLEED / pitch, BLEED / pitch, W / pitch, H / pitch, 0, 0, canvas.width, canvas.height);
+    } else {
+      const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
+      const scale = Math.min(canvas.width / iw, canvas.height / ih);
+      ctx.drawImage(bgImage, (canvas.width - iw * scale) / 2, (canvas.height - ih * scale) / 2, iw * scale, ih * scale);
+    }
     if (cols * rows > 1) {
       const cw = canvas.width / cols, ch = canvas.height / rows;
       ctx.strokeStyle = "rgba(255,255,255,0.9)";
@@ -627,7 +682,7 @@
         const pos = backSlot(s, layout, layout.slots[k]);
         const bl = backBleed(layout, pos);
         const img = backFor(i, bl);
-        doc.addImage(img.data, "JPEG", pos.x - bl.l, pos.y - bl.t, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
+        doc.addImage(img.data, img.format, pos.x - bl.l, pos.y - bl.t, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
       });
     }
     return doc;
@@ -726,7 +781,7 @@
     $("bgFile").value = "";
     loadImage(null);
   });
-  for (const id of ["arrange", "flip"]) {
+  for (const id of ["arrange", "flip", "bgStyle", "dotSize"]) {
     $(id).addEventListener("change", () => { showBack = true; });
   }
   window.addEventListener("resize", updateBackground);
