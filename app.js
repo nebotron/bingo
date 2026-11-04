@@ -3,8 +3,8 @@
 
   const STORAGE_KEY = "bingo-card-maker:v1";
   const $ = (id) => document.getElementById(id);
-  const fields = ["title", "clues", "free", "useFree", "titleFont", "clueFont",
-    "size", "count", "perPage", "paper", "numbered", "bgMode", "arrange", "flip"];
+  const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
+    "size", "count", "perPage", "paper", "bgMode", "arrange", "flip"];
 
   // Page geometry, in points. Cards are cut at their slot edges, so when a
   // back image is used the slot is the trim box.
@@ -111,8 +111,13 @@
         clues.push(clue);
       }
     }
+    // The game explanation keeps the line breaks the user typed.
+    const rules = $("rules").value.split(/\r?\n/)
+      .map((line) => line.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
     return {
       title: $("title").value.trim(),
+      rules,
       clues,
       free: $("free").value.trim() || "FREE",
       useFree: $("useFree").checked,
@@ -122,7 +127,6 @@
       count: Math.max(1, Math.min(1000, parseInt($("count").value, 10) || 1)),
       perPage: parseInt($("perPage").value, 10),
       paper: $("paper").value,
-      numbered: $("numbered").checked,
       bgMode: $("bgMode").value,
       arrange: $("arrange").value,
       flip: $("flip").value,
@@ -455,6 +459,29 @@
     }
   }
 
+  // Fits lines of text (each wrapped between words) into w × h.
+  function fitBlock(doc, paragraphs, w, h, maxSize, minSize) {
+    const lead = 1.25;
+    for (let size = maxSize; size > minSize; size -= 0.25) {
+      doc.setFontSize(size);
+      if (paragraphs.some((p) => p.split(" ").some((word) => doc.getTextWidth(word) > w))) continue;
+      const lines = paragraphs.flatMap((p) => wrapWords(doc, p, w));
+      if (lines.length * size * lead <= h) return { size, lines, lineH: size * lead };
+    }
+    doc.setFontSize(minSize);
+    return { size: minSize, lines: paragraphs.flatMap((p) => wrapWords(doc, p, w)), lineH: minSize * lead };
+  }
+
+  // Draws a fitted block with its first line box starting at `top`.
+  function drawBlock(doc, fit, x, top, align) {
+    doc.setFontSize(fit.size);
+    let y = top + fit.lineH / 2 + fit.size * 0.33;
+    for (const line of fit.lines) {
+      doc.text(line, x, y, { align });
+      y += fit.lineH;
+    }
+  }
+
   // `label` is the footer text (or ""); `place` marks the card's position in a
   // composite picture as { cols, rows, c, r }, drawn as a small map.
   function drawCard(doc, fonts, card, s, label, place, x, y, w, h) {
@@ -462,12 +489,23 @@
     const titleH = s.title ? Math.min(h * 0.12, 64) : 0;
     const footerH = label ? Math.min(h * (place ? 0.05 : 0.04), place ? 22 : 18) : 0;
     const gap = Math.min(h * 0.02, 10);
-    const avail = h - titleH - footerH - (s.title ? gap : 0) - (label ? gap : 0);
+
+    // The game explanation sits between the title and the grid.
+    let rules = null;
+    if (s.rules.length) {
+      const rw = Math.min(w, h * 0.68);
+      doc.setFont(fonts.clue, "normal");
+      const fit = fitBlock(doc, s.rules, rw, h * 0.15, Math.max(6, Math.min(h * 0.018, 13)), 5);
+      rules = { fit, h: fit.lines.length * fit.lineH };
+    }
+    const rulesH = rules ? rules.h + gap : 0;
+
+    const avail = h - titleH - rulesH - footerH - (s.title ? gap : 0) - (label ? gap : 0);
     const side = Math.min(w, avail);
     const gx = x + (w - side) / 2;
-    const blockH = titleH + (s.title ? gap : 0) + side + (label ? gap + footerH : 0);
+    const blockH = titleH + (s.title ? gap : 0) + rulesH + side + (label ? gap + footerH : 0);
     const top = y + (h - blockH) / 2;
-    const gy = top + titleH + (s.title ? gap : 0);
+    const gy = top + titleH + (s.title ? gap : 0) + rulesH;
     const cell = side / n;
 
     doc.setTextColor(20, 20, 20);
@@ -475,6 +513,13 @@
     if (s.title) {
       doc.setFont(fonts.title, "bold");
       drawCentered(doc, s.title, x + w / 2, top + titleH / 2, w, titleH, titleH * 0.85, 8);
+    }
+
+    if (rules) {
+      doc.setFont(fonts.clue, "normal");
+      doc.setTextColor(60, 60, 60);
+      drawBlock(doc, rules.fit, x + w / 2, gy - rulesH, "center");
+      doc.setTextColor(20, 20, 20);
     }
 
     // Free-space shading, then grid lines.
@@ -498,8 +543,7 @@
     card.forEach((c, i) => {
       const cx = gx + (i % n) * cell + cell / 2;
       const cy = gy + Math.floor(i / n) * cell + cell / 2;
-      if (c.free) doc.setFont(fonts.title, "bold");
-      else doc.setFont(fonts.clue, "normal");
+      doc.setFont(fonts.clue, "normal");
       drawCentered(doc, c.text, cx, cy, cell - 2 * pad, cell - 2 * pad, c.free ? maxFont * 1.4 : maxFont, 4);
     });
 
@@ -568,7 +612,7 @@
       batch.forEach((card, k) => {
         const i = start + k;
         const slot = layout.slots[k];
-        let label = s.numbered ? `Card #${i + 1}` : "";
+        let label = "";
         let place = null;
         if (grid) {
           const [cols, rows] = grid;

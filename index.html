@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bingo Card Maker</title>
-  <link rel="stylesheet" href="style.css?v=20261103">
+  <link rel="stylesheet" href="style.css?v=20261104">
 </head>
 <body>
   <main>
@@ -19,6 +19,9 @@
         <label for="title">Card title</label>
         <input id="title" type="text" value="Wedding Bingo" maxlength="80">
 
+        <label for="rules">Game explanation <span class="hint">(optional, printed above the grid)</span></label>
+        <textarea id="rules" rows="3" placeholder="Mark a square each time you see it happen. Five in a row wins."></textarea>
+
         <label for="clues">Clues <span class="hint">(one per line)</span></label>
         <textarea id="clues" rows="14" placeholder="Someone cries during the vows&#10;The DJ plays the Macarena&#10;..."></textarea>
         <p id="clueCount" class="hint"></p>
@@ -30,7 +33,7 @@
 
       <section class="panel grid2">
         <div>
-          <label for="titleFont">Title &amp; free space font</label>
+          <label for="titleFont">Title font</label>
           <select id="titleFont" class="font-select"></select>
           <p class="font-sample" data-for="titleFont">Wedding Bingo</p>
         </div>
@@ -71,7 +74,6 @@
             <option value="a4">A4</option>
           </select>
         </div>
-        <label class="check full"><input id="numbered" type="checkbox" checked> Print card numbers</label>
       </section>
 
       <section class="panel">
@@ -118,6 +120,6 @@
   </main>
 
   <script src="vendor/jspdf.umd.min.js"></script>
-  <script src="app.js?v=20261103"></script>
+  <script src="app.js?v=20261104"></script>
 </body>
 </html>
