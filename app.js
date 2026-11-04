@@ -235,6 +235,16 @@
     return canvas.toDataURL("image/jpeg", 0.9);
   }
 
+  // A random square of the picture for each card. Every square is used as
+  // evenly as possible: counts differ by at most one between squares.
+  function assignPositions(count, squares) {
+    const out = [];
+    const all = [...Array(squares).keys()];
+    while (out.length + squares <= count) out.push(...all);
+    out.push(...shuffle(all).slice(0, count - out.length));
+    return shuffle(out);
+  }
+
   // How far a back at `pos` on the reverse page runs past each of its edges.
   // Only the outer edges of the block bleed; inside it the backs meet exactly
   // at the shared cut, since neighbouring cards hold other parts of the picture.
@@ -291,16 +301,14 @@
     return out.toDataURL("image/png");
   }
 
-  // Returns a function giving the back image for card i, with the given bleed.
+  // Returns a function giving the back image for square t, with the given bleed.
   function backImages(s) {
     const { w, h } = pageLayout(s);
     const [cols, rows] = compositeGrid(s);
     const dithered = s.bgStyle !== "photo";
     const format = dithered ? "PNG" : "JPEG";
     const cache = new Map();
-    return (i, bl) => {
-      // With more cards than squares, the picture repeats: card i takes square i mod n.
-      const t = i % (cols * rows);
+    return (t, bl) => {
       const key = `${t}-${bl.l}-${bl.t}-${bl.r}-${bl.b}`;
       if (!cache.has(key)) {
         const c = t % cols, r = Math.floor(t / cols);
@@ -332,20 +340,22 @@
     const squares = cols * rows;
     let text = `The picture is ${cols} cards across and ${rows} down (${squares} square${squares === 1 ? "" : "s"}). `;
     if (s.count > squares) {
-      const sets = Math.floor(s.count / squares), extra = s.count % squares;
-      text += `With ${s.count} cards the picture repeats every ${squares} card${squares === 1 ? "" : "s"}: ` +
-        `${sets} full picture${sets === 1 ? "" : "s"}${extra ? ` plus ${extra} extra card${extra === 1 ? "" : "s"}` : ""}. `;
+      const lo = Math.floor(s.count / squares), hi = Math.ceil(s.count / squares);
+      text += `Squares are handed out to the ${s.count} cards in random order, ` +
+        `${lo === hi ? `${lo} cards` : `${lo} or ${hi} cards`} per square. `;
     } else if (s.count < squares) {
-      text += `With only ${s.count} card${s.count === 1 ? "" : "s"}, ${squares - s.count} square${squares - s.count === 1 ? " is" : "s are"} left empty. `;
+      text += `With only ${s.count} card${s.count === 1 ? "" : "s"}, ${squares - s.count} random square${squares - s.count === 1 ? " is" : "s are"} left empty. `;
+    } else {
+      text += "Squares are handed out to the cards in random order. ";
     }
-    hint.textContent = text + cut + " Lay the cards out front side up in number order (left to right, then top to bottom), " +
-      "then turn each one over where it lies.";
+    hint.textContent = text + cut + " The small map on each card's front shows which square it is; " +
+      "lay each card there front side up, then turn it over where it lies.";
     if (!parseGrid(s.arrange) && (cols === 1 || rows === 1) && s.count > 3) {
       hint.textContent += ` Tip: ${s.count} cards only make a single strip; a count like ` +
         `${Math.max(4, Math.round(Math.sqrt(s.count)) ** 2)} gives a fuller grid.`;
     }
 
-    // Preview the picture as it will be cut, with each piece's card number.
+    // Preview the picture as it will be cut.
     const W = cols * layout.w, H = rows * layout.h;
     const maxW = Math.min(canvas.parentElement.clientWidth || 600, 600);
     const k = Math.min(maxW / W, 360 / H);
@@ -375,22 +385,6 @@
       for (let c = 1; c < cols; c++) { ctx.moveTo(c * cw, 0); ctx.lineTo(c * cw, canvas.height); }
       for (let r = 1; r < rows; r++) { ctx.moveTo(0, r * ch); ctx.lineTo(canvas.width, r * ch); }
       ctx.stroke();
-      const fs = Math.max(9 * dpr, Math.min(cw, ch) * 0.3);
-      ctx.font = `700 ${fs}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.lineWidth = fs / 6;
-      ctx.strokeStyle = "rgba(0,0,0,0.6)";
-      ctx.fillStyle = "#fff";
-      for (let i = 0; i < cols * rows; i++) {
-        const x = (i % cols + 0.5) * cw, y = (Math.floor(i / cols) + 0.5) * ch;
-        const nums = [];
-        for (let n = i; n < s.count; n += cols * rows) nums.push(n + 1);
-        const text = nums.length === 0 ? "–" : nums.length <= 2 ? nums.join(", ") : `${nums[0]} (×${nums.length})`;
-        ctx.font = `700 ${Math.min(fs, (cw * 0.9) / (text.length * 0.6))}px system-ui, sans-serif`;
-        ctx.strokeText(text, x, y);
-        ctx.fillText(text, x, y);
-      }
     }
   }
 
@@ -541,7 +535,8 @@
     const titleW = Math.min(innerW, w - 2 * m.corner);
     const cx = x + w / 2;
     const titleH = s.title ? Math.min(11 * u, 64) : 0;
-    const footerH = label ? Math.min(h * 0.05, 22) : 0;
+    const footer = !!(label || place);
+    const footerH = footer ? Math.min(h * 0.05, 22) : 0;
 
     // The game explanation sits between the title and the grid.
     let rules = null;
@@ -552,7 +547,7 @@
     }
     const rulesH = rules ? rules.h + gap : 0;
 
-    const fixed = titleH + (s.title ? gap : 0) + rulesH + (label ? gap + footerH : 0);
+    const fixed = titleH + (s.title ? gap : 0) + rulesH + (footer ? gap + footerH : 0);
     const side = Math.max(0, Math.min(innerW, h - padT - padB - fixed));
     let cursor = y + padT + (h - padT - padB - fixed - side) / 2;
 
@@ -576,22 +571,26 @@
     const gx = cx - side / 2, gy = cursor;
     drawGrid(doc, fonts, card, n, gx, gy, side);
 
-    if (label) {
+    if (footer) {
       const fy = gy + side + gap;
-      doc.setFont(fonts.clue, place ? "bold" : "normal");
-      doc.setTextColor(...MUTED);
-      doc.setFontSize(Math.max(6, footerH * 0.6));
-      doc.text(label, gx + side, fy + footerH * 0.7, { align: "right" });
+      if (label) {
+        doc.setFont(fonts.clue, "normal");
+        doc.setTextColor(...MUTED);
+        doc.setFontSize(Math.max(6, footerH * 0.6));
+        doc.text(label, gx + side, fy + footerH * 0.7, { align: "right" });
+      }
       if (place) {
         const cs = Math.min(footerH / place.rows, (side * 0.3) / place.cols);
         const my = fy + (footerH - cs * place.rows) / 2;
+        // Centred under the grid when there's no footer text beside it.
+        const mx = label ? gx : cx - (cs * place.cols) / 2;
         doc.setLineWidth(Math.min(0.5, cs / 8));
         doc.setDrawColor(130, 130, 130);
         doc.setFillColor(60, 60, 60);
         for (let r = 0; r < place.rows; r++) {
           for (let c = 0; c < place.cols; c++) {
             const here = r === place.r && c === place.c;
-            doc.rect(gx + c * cs, my + r * cs, cs, cs, here ? "FD" : "S");
+            doc.rect(mx + c * cs, my + r * cs, cs, cs, here ? "FD" : "S");
           }
         }
       }
@@ -653,6 +652,7 @@
     const hasBack = s.bgMode !== "none" && bgImage;
     const grid = s.bgMode === "composite" ? compositeGrid(s) : null;
     const backFor = hasBack ? backImages(s) : null;
+    const squareOf = grid ? assignPositions(cards.length, grid[0] * grid[1]) : null;
     // With backs, the content stays clear of the cut line.
     const inset = hasBack ? SAFE : 0;
 
@@ -666,10 +666,8 @@
         let place = null;
         if (grid) {
           const [cols, rows] = grid;
-          const t = i % (cols * rows);
+          const t = squareOf[i];
           place = { cols, rows, c: t % cols, r: Math.floor(t / cols) };
-          const copy = s.count > cols * rows ? ` · picture ${Math.floor(i / (cols * rows)) + 1}` : "";
-          label = `#${i + 1}${copy} · row ${place.r + 1}, col ${place.c + 1}`;
         }
         drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset);
       });
@@ -681,7 +679,7 @@
         const i = start + k;
         const pos = backSlot(s, layout, layout.slots[k]);
         const bl = backBleed(layout, pos);
-        const img = backFor(i, bl);
+        const img = backFor(squareOf ? squareOf[i] : 0, bl);
         doc.addImage(img.data, img.format, pos.x - bl.l, pos.y - bl.t, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
       });
     }
@@ -801,5 +799,5 @@
   });
 
   // Exposed for testing.
-  window.BingoMaker = { readSettings, makeCards, buildPdf, FONTS, pageLayout, compositeGrid, parseGrid };
+  window.BingoMaker = { readSettings, makeCards, buildPdf, FONTS, pageLayout, compositeGrid, parseGrid, assignPositions };
 })();
