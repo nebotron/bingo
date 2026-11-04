@@ -4,7 +4,7 @@
   const STORAGE_KEY = "bingo-card-maker:v1";
   const $ = (id) => document.getElementById(id);
   const fields = ["title", "rules", "rulesHeading", "clues", "style", "free", "useFree", "titleFont", "clueFont",
-    "size", "count", "perPage", "paper", "bgMode", "arrange", "flip"];
+    "size", "count", "paper", "bgMode", "arrange", "flip"];
 
   // Page geometry, in points. Cards are cut at their slot edges, so when a
   // back image is used the slot is the trim box.
@@ -14,6 +14,7 @@
   const BLEED = 9;        // 1/8": back image runs past the trim line
   const SAFE = 14;        // keeps front content clear of the trim line
   const MAX_DPI = 250;
+  const CARDS_PER_PAGE = 4; // always a 2 × 2 sheet
 
   // The image the user picked; never stored (it can be large).
   let bgImage = null;
@@ -127,7 +128,7 @@
       clueFont: $("clueFont").value,
       size: parseInt($("size").value, 10),
       count: Math.max(1, Math.min(1000, parseInt($("count").value, 10) || 1)),
-      perPage: parseInt($("perPage").value, 10),
+      perPage: CARDS_PER_PAGE,
       paper: $("paper").value,
       bgMode: $("bgMode").value,
       arrange: $("arrange").value,

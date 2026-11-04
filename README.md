@@ -4,7 +4,7 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line. Optionally add a game explanation, which prints between the title and the grid; line breaks you type are kept.
 2. Set the free-space text, or turn the free space off.
-3. Pick a card style. **Pacific Northwest**, the default, frames the card with an illustrated border of native plants and animals: a thimbleberry vine with its leaves, white flowers and berries along the top and sides, sword ferns and mushrooms (fly agaric, chanterelles and small brown caps) along the bottom, and a song sparrow and a cedar waxwing perched in the top corners. Inside it is the open green grid from Clearing. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card, so it fits 1, 2 or 4 cards per page.
+3. Pick a card style. **Pacific Northwest**, the default, frames the card with an illustrated border of native plants and animals: a thimbleberry vine with its leaves, white flowers and berries along the top and sides, sword ferns and mushrooms (fly agaric, chanterelles and small brown caps) along the bottom, and a song sparrow and a cedar waxwing perched in the top corners. Inside it is the open green grid from Clearing. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card.
 
    Four more woodland designs use simple vector ornaments:
    - **Evergreen**: a double-rule frame, fern sprigs in the top corners and a leaf wreath around the free space.
@@ -14,7 +14,7 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
    **Plain** is the original black-and-white card. Choosing a style also selects its suggested fonts. Fern & Moss and Timber print an explanation heading ("How to play" by default) above or beside the explanation.
 4. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
-5. Choose the grid size, number of cards, cards per page and paper size.
+5. Choose the grid size, number of cards and paper size. Cards always print four to a page, in a 2 × 2 layout.
 6. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.
 
 Each card draws a random selection of your clues in a random order. Duplicate clues are ignored, and the app avoids producing two identical cards. Long clues shrink and wrap to fit their squares. Lines only break between words, never inside one.

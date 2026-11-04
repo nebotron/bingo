@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bingo Card Maker</title>
-  <link rel="stylesheet" href="style.css?v=20261104b">
+  <link rel="stylesheet" href="style.css?v=20261104c">
 </head>
 <body>
   <main>
@@ -66,15 +66,7 @@
           <label for="count">Number of cards</label>
           <input id="count" type="number" min="1" max="1000" value="20">
         </div>
-        <div>
-          <label for="perPage">Cards per page</label>
-          <select id="perPage">
-            <option value="1" selected>1</option>
-            <option value="2">2</option>
-            <option value="4">4</option>
-          </select>
-        </div>
-        <div>
+        <div class="full">
           <label for="paper">Paper</label>
           <select id="paper">
             <option value="letter" selected>Letter</option>
@@ -127,7 +119,7 @@
   </main>
 
   <script src="vendor/jspdf.umd.min.js"></script>
-  <script src="pnw-art.js?v=20261104b"></script>
-  <script src="app.js?v=20261104b"></script>
+  <script src="pnw-art.js?v=20261104c"></script>
+  <script src="app.js?v=20261104c"></script>
 </body>
 </html>
