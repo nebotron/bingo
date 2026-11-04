@@ -140,7 +140,7 @@
       doc.text(text, px, py, side ? { ...opts, angle: 180 } : opts);
     };
     // The border as vector art; the back half is the same art turned 180°.
-    window.PdfCanvas.placeArt(doc, `nc-${s.border}-${w}x${h}`, w, h, x, side ? y : y + h, !!side, (ctx) => {
+    if (s.border !== "none") window.PdfCanvas.placeArt(doc, `nc-${s.border}-${w}x${h}`, w, h, x, side ? y : y + h, !!side, (ctx) => {
       if (s.border === "floral") window.PnwArt.drawFloralFrame(ctx, w, h);
       else window.PnwArt.drawBorder(ctx, w, h);
     });
@@ -249,6 +249,12 @@
           doc.setDrawColor(...CUT);
           doc.setLineWidth(0.3);
           doc.rect(slot.x, slot.y, layout.w, layout.fh, "S");
+        }
+        // Without a border, outline the cut line instead.
+        if (s.border === "none") {
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(0.75);
+          doc.rect(slot.x, slot.y, layout.w, layout.h, "S");
         }
       });
       drawMarks(doc, layout, layout.slots.slice(0, batch.length));

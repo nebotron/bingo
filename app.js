@@ -5,7 +5,7 @@
   const SAVE_VERSION = 2;
   const $ = (id) => document.getElementById(id);
   const fields = ["title", "rules", "clues", "free", "useFree", "titleFont", "clueFont",
-    "size", "count", "paper", "arrange", "flip", "bgStyle", "dotSize"];
+    "size", "count", "paper", "border", "arrange", "flip", "bgStyle", "dotSize"];
 
   // Page geometry, in points. The four cards touch, with no gap between
   // them, so the sheet comes apart in six straight cuts: one along each outer
@@ -65,6 +65,7 @@
       count: Math.max(1, Math.min(1000, parseInt($("count").value, 10) || 1)),
       perPage: CARDS_PER_PAGE,
       paper: $("paper").value,
+      border: $("border").value === "none" ? "none" : "northwest",
       // The backs form one picture when an image is chosen; none without one.
       bgMode: bgImage ? "composite" : "none",
       arrange: $("arrange").value,
@@ -576,7 +577,7 @@
     const side = Math.max(0, Math.min(innerW, h - padT - padB - fixed));
     let cursor = y + padT + (h - padT - padB - fixed - side) / 2;
 
-    drawBorder(doc, x, y, w, h);
+    if (s.border !== "none") drawBorder(doc, x, y, w, h);
 
     if (s.title) {
       doc.setTextColor(...INK);
@@ -664,6 +665,12 @@
   }
 
 
+  function drawCutOutline(doc, x, y, w, h) {
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.75);
+    doc.rect(x, y, w, h, "S");
+  }
+
   async function buildPdf(s, cards) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: "pt", format: s.paper, orientation: "portrait", compress: true, floatPrecision: 2 });
@@ -694,6 +701,8 @@
           place = { cols, rows, c: t % cols, r: Math.floor(t / cols) };
         }
         drawCard(doc, fonts, card, s, label, place, slot.x + inset, slot.y + inset, w - 2 * inset, h - 2 * inset);
+        // Without the illustrated border, outline the cut line instead.
+        if (s.border === "none") drawCutOutline(doc, slot.x, slot.y, w, h);
       });
       drawCropMarks(doc, layout, layout.slots.slice(0, batch.length));
       if (!hasBack) continue;
