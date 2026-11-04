@@ -2,6 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "bingo-card-maker:v1";
+  const SAVE_VERSION = 2;
   const $ = (id) => document.getElementById(id);
   const fields = ["title", "rules", "rulesHeading", "clues", "style", "free", "useFree", "titleFont", "clueFont",
     "size", "count", "paper", "bgMode", "arrange", "flip"];
@@ -147,6 +148,7 @@
         const el = $(f);
         data[f] = el.type === "checkbox" ? el.checked : el.value;
       }
+      data.version = SAVE_VERSION;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     } catch (e) { /* storage unavailable */ }
   }
@@ -155,8 +157,12 @@
     try {
       const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!data) return;
+      // Settings saved before the Pacific Northwest style keep their text but
+      // switch to that style and its fonts.
+      const old = (data.version || 0) < SAVE_VERSION;
       for (const f of fields) {
         if (!(f in data)) continue;
+        if (old && ["style", "titleFont", "clueFont"].includes(f)) continue;
         const el = $(f);
         // The arrangement options are built later; remember the choice.
         if (f === "arrange") el.dataset.want = data[f];
