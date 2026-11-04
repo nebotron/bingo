@@ -4,15 +4,7 @@ A static web app for making randomized bingo cards as a PDF. It runs entirely in
 
 1. Paste your clues, one per line. Optionally add a game explanation, which prints between the title and the grid; line breaks you type are kept.
 2. Set the free-space text, or turn the free space off.
-3. Pick a card style. **Pacific Northwest**, the default, frames the card with an illustrated border of native plants and animals: a thimbleberry vine with its leaves, white flowers and berries along the top and sides, sword ferns and mushrooms (fly agaric, chanterelles and small brown caps) along the bottom, and a song sparrow and a cedar waxwing perched in the top corners. Inside it is the open green grid from Clearing. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card.
-
-   Four more woodland designs use simple vector ornaments:
-   - **Evergreen**: a double-rule frame, fern sprigs in the top corners and a leaf wreath around the free space.
-   - **Fern & Moss**: a leafy arch over the title, the explanation in a framed panel, and the squares as pale sage tiles.
-   - **Timber**: spaced capitals, a treeline along the bottom and tree rings in the free space. Use plain **Timber** to print on kraft cardstock, or **Timber with kraft background** to print the color.
-   - **Clearing**: three small pines, an open grid and a single green. It uses the least ink.
-
-   **Plain** is the original black-and-white card. Choosing a style also selects its suggested fonts. Fern & Moss and Timber print an explanation heading ("How to play" by default) above or beside the explanation.
+3. The cards have one design: an illustrated border of Pacific Northwest plants and animals (thimbleberry, sword ferns, mushrooms, a song sparrow and a cedar waxwing) around an open green grid. The border is drawn in `pnw-art.js` and printed as a 200 dpi image sized to the card.
 4. Pick fonts: calligraphy scripts (Great Vibes, Pinyon Script, Parisienne, Allura, Alex Brush, Dancing Script), elegant serifs (Cormorant Garamond, EB Garamond, Playfair Display, Lora) or plain Helvetica. The title uses one font; the clues and the free space use another.
 5. Choose the grid size, number of cards and paper size. Cards always print four to a page, in a 2 × 2 layout.
 6. Check the PDF preview, which updates as you type. Use **Reshuffle cards** for a new random set, then **Download PDF** to save exactly what's shown.

@@ -23,14 +23,13 @@
     return () => (x = (x * 16807) % 2147483647) / 2147483647;
   }
 
+  // `band` and `floor` are how far the artwork reaches in from the sides/top
+  // and the bottom; `top`, `side` and `bottom` are the padding the card
+  // content keeps; `corner` keeps the title clear of the birds.
   function metrics(W, H) {
     const s = Math.min(W, H) / 600;
-    return {
-      s,
-      band: 46 * s,            // the border's width on the top and sides
-      bottom: 64 * s,          // the border's height along the bottom
-      corner: 118 * s,         // keep the title clear of the birds
-    };
+    const band = 46 * s, floor = 64 * s;
+    return { s, band, floor, top: band + 10 * s, side: band + 14 * s, bottom: floor + 8 * s, corner: 118 * s };
   }
 
   // ---------- thimbleberry ----------
