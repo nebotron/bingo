@@ -285,20 +285,33 @@
     return ditherCache;
   }
 
-  // A region of the dithered picture (in points from the cards' top-left,
-  // negative reaching into the bleed) as a crisp PNG.
-  function renderDithered(s, region) {
+  // The dots of the dithered picture inside `region` (in points from the
+  // cards' top-left, negative reaching into the bleed), as black rectangles
+  // relative to the region's corner: one per horizontal run of dots, cut off
+  // at the region's edges. They print as vectors, so they stay sharp and the
+  // PDF builds quickly.
+  function ditheredRuns(s, region) {
     const { canvas: dots, pitch } = ditheredPicture(s);
-    // Whole output pixels per dot keep every dot the same size.
-    const pxPerDot = Math.max(1, Math.round((MAX_DPI / 72) * pitch));
-    const out = document.createElement("canvas");
-    out.width = Math.max(1, Math.round((region.w / pitch) * pxPerDot));
-    out.height = Math.max(1, Math.round((region.h / pitch) * pxPerDot));
-    const ctx = out.getContext("2d");
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(dots, (region.x + BLEED) / pitch, (region.y + BLEED) / pitch,
-      region.w / pitch, region.h / pitch, 0, 0, out.width, out.height);
-    return out.toDataURL("image/png");
+    const { ink, width: dw, height: dh } = dots;
+    const x0 = region.x + BLEED, y0 = region.y + BLEED; // in the dots' frame
+    const x1 = x0 + region.w, y1 = y0 + region.h;
+    const OVERLAP = 0.05; // hides hairline seams between neighbouring rows
+    const runs = [];
+    const jEnd = Math.min(dh, Math.ceil(y1 / pitch));
+    const iStart = Math.max(0, Math.floor(x0 / pitch)), iEnd = Math.min(dw, Math.ceil(x1 / pitch));
+    for (let j = Math.max(0, Math.floor(y0 / pitch)); j < jEnd; j++) {
+      const ya = Math.max(y0, j * pitch), yb = Math.min(y1, (j + 1) * pitch + OVERLAP);
+      if (yb <= ya) continue;
+      for (let i = iStart; i < iEnd; i++) {
+        if (!ink[j * dw + i]) continue;
+        let k = i;
+        while (k + 1 < iEnd && ink[j * dw + k + 1]) k++;
+        const xa = Math.max(x0, i * pitch), xb = Math.min(x1, (k + 1) * pitch + OVERLAP);
+        if (xb > xa) runs.push([xa - x0, ya - y0, xb - xa, yb - ya]);
+        i = k;
+      }
+    }
+    return runs;
   }
 
   // Returns a function giving the back image for square t, with the given bleed.
@@ -306,7 +319,6 @@
     const { w, h } = pageLayout(s);
     const [cols, rows] = compositeGrid(s);
     const dithered = s.bgStyle !== "photo";
-    const format = dithered ? "PNG" : "JPEG";
     const cache = new Map();
     return (t, bl) => {
       const key = `${t}-${bl.l}-${bl.t}-${bl.r}-${bl.b}`;
@@ -314,8 +326,8 @@
         const c = t % cols, r = Math.floor(t / cols);
         // The bleed shows the picture just past the card, so it stays continuous.
         const region = { x: c * w - bl.l, y: r * h - bl.t, w: w + bl.l + bl.r, h: h + bl.t + bl.b };
-        const data = dithered ? renderDithered(s, region) : renderRegion(cols * w, rows * h, region);
-        cache.set(key, { data, alias: `tile${key}`, format });
+        cache.set(key, dithered ? { runs: ditheredRuns(s, region) }
+          : { data: renderRegion(cols * w, rows * h, region), alias: `tile${key}` });
       }
       return cache.get(key);
     };
@@ -680,7 +692,13 @@
         const pos = backSlot(s, layout, layout.slots[k]);
         const bl = backBleed(layout, pos);
         const img = backFor(squareOf ? squareOf[i] : 0, bl);
-        doc.addImage(img.data, img.format, pos.x - bl.l, pos.y - bl.t, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
+        const bx = pos.x - bl.l, by = pos.y - bl.t;
+        if (img.runs) {
+          doc.setFillColor(0, 0, 0);
+          for (const [rx, ry, rw, rh] of img.runs) doc.rect(bx + rx, by + ry, rw, rh, "F");
+        } else {
+          doc.addImage(img.data, "JPEG", bx, by, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
+        }
       });
     }
     return doc;

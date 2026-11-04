@@ -93,18 +93,28 @@
   // Draws `img` on a white w × h canvas into `rect` (default: the whole canvas,
   // covered), halving in steps so a large photo shrinks smoothly to a few
   // hundred dots.
+  const pyramids = new WeakMap();
+
   function placeCanvas(img, w, h, rect) {
     const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
     const scale = rect ? rect.w / iw : Math.max(w / iw, h / ih);
     const tw = iw * scale; // final width of the whole image
-    let src = img, sw = iw, sh = ih;
-    while (sw / 2 >= tw && sh > 2) {
-      const c = document.createElement("canvas");
-      c.width = Math.ceil(sw / 2);
-      c.height = Math.ceil(sh / 2);
-      c.getContext("2d").drawImage(src, 0, 0, sw, sh, 0, 0, c.width, c.height);
-      src = c; sw = c.width; sh = c.height;
+    // Halved copies are kept per image, so changing a setting doesn't shrink
+    // a large photo all over again.
+    let levels = pyramids.get(img);
+    if (!levels) pyramids.set(img, (levels = [{ src: img, w: iw, h: ih }]));
+    let lv = levels[0];
+    for (let i = 1; lv.w / 2 >= tw && lv.h > 2; i++) {
+      if (!levels[i]) {
+        const c = document.createElement("canvas");
+        c.width = Math.ceil(lv.w / 2);
+        c.height = Math.ceil(lv.h / 2);
+        c.getContext("2d").drawImage(lv.src, 0, 0, lv.w, lv.h, 0, 0, c.width, c.height);
+        levels[i] = { src: c, w: c.width, h: c.height };
+      }
+      lv = levels[i];
     }
+    const { src, w: sw, h: sh } = lv;
     const k = (iw * scale) / sw;
     const dx = rect ? rect.x : (w - sw * k) / 2, dy = rect ? rect.y : (h - sh * k) / 2;
     const out = document.createElement("canvas");
@@ -132,6 +142,7 @@
       data.data[4 * i + 3] = 255;
     }
     ctx.putImageData(data, 0, 0);
+    src.ink = ink; // 1 where a dot goes, row by row
     return src;
   }
 
