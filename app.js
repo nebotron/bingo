@@ -12,7 +12,6 @@
   // edge of the block, then one down and one across the middle.
   const PAPER = { letter: [612, 792], a4: [595.28, 841.89] };
   const MARGIN = 36;
-  const BLEED = 9;        // 1/8": back image runs past the outer trim lines
   const SAFE = 14;        // keeps front content clear of the trim line
   const MAX_DPI = 250;
   const CARDS_PER_PAGE = 4; // always a 2 × 2 sheet
@@ -216,19 +215,18 @@
   }
 
   // Where the image sits over an area of fitW × fitH points (the trimmed
-  // cards): scaled to fill the area and its outer bleed, centred, so it runs
-  // right out to the cut lines with no white border; whatever overhangs is
-  // cropped. Returns the image's top-left (in points from the area's top-left,
-  // negative reaching past it) and its scale in points per source pixel.
+  // cards): scaled to fill the area, centred, so it runs right out to the cut
+  // lines with no white border; whatever overhangs is cropped. Returns the
+  // image's top-left (in points from the area's top-left, negative reaching
+  // past it) and its scale in points per source pixel.
   function coverPlacement(fitW, fitH) {
     const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-    const scale = Math.max((fitW + 2 * BLEED) / iw, (fitH + 2 * BLEED) / ih);
+    const scale = Math.max(fitW / iw, fitH / ih);
     return { x: (fitW - iw * scale) / 2, y: (fitH - ih * scale) / 2, scale };
   }
 
   // Render part of the image to JPEG, placed as coverPlacement says. `region`
-  // is the part to output, in points from the area's top-left (negative
-  // reaches into bleed).
+  // is the part to output, in points from the area's top-left.
   function renderRegion(fitW, fitH, region) {
     const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
     const { x: ox, y: oy, scale } = coverPlacement(fitW, fitH);
@@ -255,21 +253,8 @@
     return shuffle(out);
   }
 
-  // How far a back at `pos` on the reverse page runs past each of its edges.
-  // Only the outer edges of the block bleed; inside it the backs meet exactly
-  // at the shared cut, since neighbouring cards hold other parts of the picture.
-  function backBleed(layout, pos) {
-    const eps = 0.5;
-    return {
-      l: pos.x <= MARGIN + eps ? BLEED : 0,
-      t: pos.y <= MARGIN + eps ? BLEED : 0,
-      r: pos.x + layout.w >= layout.pw - MARGIN - eps ? BLEED : 0,
-      b: pos.y + layout.h >= layout.ph - MARGIN - eps ? BLEED : 0,
-    };
-  }
-
   // ---------- dithered backs ----------
-  // The whole picture (every card plus the outer bleed) is dithered once, with
+  // The whole picture (every card) is dithered once, with
   // `dotSize` dots across each card, so the dots carry on across the cuts.
 
   let ditherCache = null; // { key, canvas, pitch }
@@ -280,30 +265,30 @@
     const pitch = w / s.dotSize; // points per dot
     const key = [bgImage.src, s.bgStyle, s.dotSize, cols, rows, w, h].join("|");
     if (!ditherCache || ditherCache.key !== key) {
-      // Like renderRegion: the image fills the cards and their bleed, centred.
+      // Like renderRegion: the image fills the cards, centred.
       const fitW = cols * w, fitH = rows * h;
       const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
       const { x: ox, y: oy, scale } = coverPlacement(fitW, fitH);
       const rect = {
-        x: (BLEED + ox) / pitch, y: (BLEED + oy) / pitch,
+        x: ox / pitch, y: oy / pitch,
         w: (iw * scale) / pitch, h: (ih * scale) / pitch,
       };
       const canvas = window.Dither.ditherImage(bgImage,
-        Math.ceil((fitW + 2 * BLEED) / pitch), Math.ceil((fitH + 2 * BLEED) / pitch), s.bgStyle, rect);
+        Math.ceil(fitW / pitch), Math.ceil(fitH / pitch), s.bgStyle, rect);
       ditherCache = { key, canvas, pitch };
     }
     return ditherCache;
   }
 
   // The dots of the dithered picture inside `region` (in points from the
-  // cards' top-left, negative reaching into the bleed), as black rectangles
+  // cards' top-left), as black rectangles
   // relative to the region's corner: one per horizontal run of dots, cut off
   // at the region's edges. They print as vectors, so they stay sharp and the
   // PDF builds quickly.
   function ditheredRuns(s, region) {
     const { canvas: dots, pitch } = ditheredPicture(s);
     const { ink, width: dw, height: dh } = dots;
-    const x0 = region.x + BLEED, y0 = region.y + BLEED; // in the dots' frame
+    const x0 = region.x, y0 = region.y;
     const x1 = x0 + region.w, y1 = y0 + region.h;
     const OVERLAP = 0.05; // hides hairline seams between neighbouring rows
     const runs = [];
@@ -324,22 +309,21 @@
     return runs;
   }
 
-  // Returns a function giving the back image for square t, with the given bleed.
+  // Returns a function giving the back image for square t: exactly one card's
+  // share of the picture, so it lines up with the card's cut outline.
   function backImages(s) {
     const { w, h } = pageLayout(s);
     const [cols, rows] = compositeGrid(s);
     const dithered = s.bgStyle !== "photo";
     const cache = new Map();
-    return (t, bl) => {
-      const key = `${t}-${bl.l}-${bl.t}-${bl.r}-${bl.b}`;
-      if (!cache.has(key)) {
+    return (t) => {
+      if (!cache.has(t)) {
         const c = t % cols, r = Math.floor(t / cols);
-        // The bleed shows the picture just past the card, so it stays continuous.
-        const region = { x: c * w - bl.l, y: r * h - bl.t, w: w + bl.l + bl.r, h: h + bl.t + bl.b };
-        cache.set(key, dithered ? { runs: ditheredRuns(s, region) }
-          : { data: renderRegion(cols * w, rows * h, region), alias: `tile${key}` });
+        const region = { x: c * w, y: r * h, w, h };
+        cache.set(t, dithered ? { runs: ditheredRuns(s, region) }
+          : { data: renderRegion(cols * w, rows * h, region), alias: `tile${t}` });
       }
-      return cache.get(key);
+      return cache.get(t);
     };
   }
 
@@ -390,10 +374,10 @@
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (s.bgStyle !== "photo") {
-      // The dithered picture without its outer bleed, dots kept sharp.
+      // The dithered picture, dots kept sharp.
       const { canvas: dots, pitch } = ditheredPicture(s);
       ctx.imageSmoothingEnabled = canvas.width / (W / pitch) < 2;
-      ctx.drawImage(dots, BLEED / pitch, BLEED / pitch, W / pitch, H / pitch, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(dots, 0, 0, W / pitch, H / pitch, 0, 0, canvas.width, canvas.height);
     } else {
       // As printed: filling the cards, cropped at the outer cut lines.
       const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
@@ -714,14 +698,12 @@
       batch.forEach((card, k) => {
         const i = start + k;
         const pos = backSlot(s, layout, layout.slots[k]);
-        const bl = backBleed(layout, pos);
-        const img = backFor(squareOf ? squareOf[i] : 0, bl);
-        const bx = pos.x - bl.l, by = pos.y - bl.t;
+        const img = backFor(squareOf ? squareOf[i] : 0);
         if (img.runs) {
           doc.setFillColor(0, 0, 0);
-          for (const [rx, ry, rw, rh] of img.runs) doc.rect(bx + rx, by + ry, rw, rh, "F");
+          for (const [rx, ry, rw, rh] of img.runs) doc.rect(pos.x + rx, pos.y + ry, rw, rh, "F");
         } else {
-          doc.addImage(img.data, "JPEG", bx, by, w + bl.l + bl.r, h + bl.t + bl.b, img.alias, "FAST");
+          doc.addImage(img.data, "JPEG", pos.x, pos.y, w, h, img.alias, "FAST");
         }
       });
     }
