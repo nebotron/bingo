@@ -215,15 +215,23 @@
     return best;
   }
 
-  // Render part of the image to JPEG. The whole image is scaled to fit inside
-  // an area of fitW × fitH points (the trimmed cards), centred, so none of it
-  // is cut off; whatever it doesn't fill is white. `region` is the part to
-  // output, in points from the area's top-left (negative reaches into bleed).
+  // Where the image sits over an area of fitW × fitH points (the trimmed
+  // cards): scaled to fill the area and its outer bleed, centred, so it runs
+  // right out to the cut lines with no white border; whatever overhangs is
+  // cropped. Returns the image's top-left (in points from the area's top-left,
+  // negative reaching past it) and its scale in points per source pixel.
+  function coverPlacement(fitW, fitH) {
+    const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
+    const scale = Math.max((fitW + 2 * BLEED) / iw, (fitH + 2 * BLEED) / ih);
+    return { x: (fitW - iw * scale) / 2, y: (fitH - ih * scale) / 2, scale };
+  }
+
+  // Render part of the image to JPEG, placed as coverPlacement says. `region`
+  // is the part to output, in points from the area's top-left (negative
+  // reaches into bleed).
   function renderRegion(fitW, fitH, region) {
     const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-    const scale = Math.min(fitW / iw, fitH / ih); // points per source pixel
-    const ox = (fitW - iw * scale) / 2;
-    const oy = (fitH - ih * scale) / 2;
+    const { x: ox, y: oy, scale } = coverPlacement(fitW, fitH);
     const pxPerPt = Math.min(MAX_DPI / 72, 1 / scale);
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(region.w * pxPerPt));
@@ -272,12 +280,12 @@
     const pitch = w / s.dotSize; // points per dot
     const key = [bgImage.src, s.bgStyle, s.dotSize, cols, rows, w, h].join("|");
     if (!ditherCache || ditherCache.key !== key) {
-      // Like renderRegion: the image fits inside the cards, centred.
+      // Like renderRegion: the image fills the cards and their bleed, centred.
       const fitW = cols * w, fitH = rows * h;
       const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-      const scale = Math.min(fitW / iw, fitH / ih);
+      const { x: ox, y: oy, scale } = coverPlacement(fitW, fitH);
       const rect = {
-        x: (BLEED + (fitW - iw * scale) / 2) / pitch, y: (BLEED + (fitH - ih * scale) / 2) / pitch,
+        x: (BLEED + ox) / pitch, y: (BLEED + oy) / pitch,
         w: (iw * scale) / pitch, h: (ih * scale) / pitch,
       };
       const canvas = window.Dither.ditherImage(bgImage,
@@ -387,9 +395,10 @@
       ctx.imageSmoothingEnabled = canvas.width / (W / pitch) < 2;
       ctx.drawImage(dots, BLEED / pitch, BLEED / pitch, W / pitch, H / pitch, 0, 0, canvas.width, canvas.height);
     } else {
+      // As printed: filling the cards, cropped at the outer cut lines.
       const iw = bgImage.naturalWidth, ih = bgImage.naturalHeight;
-      const scale = Math.min(canvas.width / iw, canvas.height / ih);
-      ctx.drawImage(bgImage, (canvas.width - iw * scale) / 2, (canvas.height - ih * scale) / 2, iw * scale, ih * scale);
+      const place = coverPlacement(W, H), px = canvas.width / W;
+      ctx.drawImage(bgImage, place.x * px, place.y * px, iw * place.scale * px, ih * place.scale * px);
     }
     if (cols * rows > 1) {
       const cw = canvas.width / cols, ch = canvas.height / rows;
